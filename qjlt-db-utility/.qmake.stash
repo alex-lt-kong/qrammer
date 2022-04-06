@@ -1,0 +1,35 @@
+QMAKE_CXX.INCDIRS = \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x/include \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x/include-fixed \
+    /home/mamsds/Android/Sdk/ndk-bundle/platforms/android-16/arch-arm/usr/include
+QMAKE_CXX.LIBDIRS = \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x/armv7-a \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/arm-linux-androideabi/lib/armv7-a \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc/arm-linux-androideabi/4.9.x \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/lib/gcc \
+    /home/mamsds/Android/Sdk/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/arm-linux-androideabi/lib \
+    /home/mamsds/Android/Sdk/ndk-bundle/platforms/android-16/arch-arm/usr/lib
+QMAKE_CXX.QT_COMPILER_STDCXX = 199711L
+QMAKE_CXX.QMAKE_GCC_MAJOR_VERSION = 4
+QMAKE_CXX.QMAKE_GCC_MINOR_VERSION = 9
+QMAKE_CXX.QMAKE_GCC_PATCH_VERSION = 0
+QMAKE_CXX.COMPILER_MACROS = \
+    QT_COMPILER_STDCXX \
+    QMAKE_GCC_MAJOR_VERSION \
+    QMAKE_GCC_MINOR_VERSION \
+    QMAKE_GCC_PATCH_VERSION
+QMAKE_DEFAULT_INCDIRS = \
+    /usr/include/c++/6 \
+    /usr/include/x86_64-linux-gnu/c++/6 \
+    /usr/include/c++/6/backward \
+    /usr/lib/gcc/x86_64-linux-gnu/6/include \
+    /usr/local/include \
+    /usr/lib/gcc/x86_64-linux-gnu/6/include-fixed \
+    /usr/include/x86_64-linux-gnu \
+    /usr/include
+QMAKE_DEFAULT_LIBDIRS = \
+    /usr/lib/gcc/x86_64-linux-gnu/6 \
+    /usr/lib/x86_64-linux-gnu \
+    /usr/lib \
+    /lib/x86_64-linux-gnu \
+    /lib

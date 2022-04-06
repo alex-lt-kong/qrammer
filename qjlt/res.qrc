@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Main.ico</file>
+    </qresource>
+    <qresource prefix="/fonts"/>
+</RCC>
