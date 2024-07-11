@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include "practicewindow.h"
 
+#include <QRegularExpression>
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -10,7 +12,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     initPlatformSpecificSettings();
     if (!initCategoryStructure()) return;
-      //To make sure that the program is exited if database cannot be opened
+     //To make sure that the program quits if database cannot be opened
     initUI();
     initStatistics();
     initSettings();
@@ -30,12 +32,11 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::closeEvent (QCloseEvent *event)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question( this, "Mamsds QJLT",
-                                                                tr("Are you sure to quit?\n"),
-                                                                QMessageBox::No | QMessageBox::Yes,
-                                                                QMessageBox::Yes);
+    QMessageBox::StandardButton resBtn = QMessageBox::question(
+        this, "QJLT", tr("Are you sure to quit?\n"), QMessageBox::No | QMessageBox::Yes, QMessageBox::Yes
+    );
     if (resBtn != QMessageBox::Yes) {
-            event->ignore();
+        event->ignore();
     } else {
         event->accept();
         QApplication::quit();
@@ -48,7 +49,7 @@ bool MainWindow::initCategoryStructure()
         QSqlQuery *query = new QSqlQuery(mySQL);
         query->prepare("SELECT DISTINCT(category) FROM knowledge_units WHERE is_shelved = 0 ORDER BY category DESC");
         if (!query->exec()) {
-            QMessageBox::critical(this, "Mamsds QJLT - Fatal Error", "Cannot read the databse [" + mySQL.databaseName()
+            QMessageBox::critical(this, "QJLT - Fatal Error", "Cannot read the databse [" + mySQL.databaseName()
                                   + "]. The database could be locked, empty or corrupt.\nInteral error info:\n" + query->lastError().text());
             return false;
         }
@@ -76,11 +77,14 @@ bool MainWindow::initCategoryStructure()
 
             allCats->append(t);
         }
-        for (int i = 0; i < allCats->count(); i++)
-            ui->lineEdit_NumberstoLearn->setPlaceholderText(ui->lineEdit_NumberstoLearn->placeholderText() + allCats->at(i)->name + (i < allCats->count() - 1 ? ", " : ""));
+        for (int i = 0; i < allCats->count(); i++) {
+            ui->lineEdit_NumberstoLearn->setPlaceholderText(
+                        ui->lineEdit_NumberstoLearn->placeholderText() + allCats->at(i)->name + (i < allCats->count() - 1 ? ", " : "")
+            );
+        }
         return true;
     } else {
-        QMessageBox::critical(this, "Mamsds QJLT - Fatal Error", "Cannot open the databse file [" + mySQL.databaseName() + "]\nInternal error message:\n"
+        QMessageBox::critical(this, "QJLT - Fatal Error", "Cannot open the databse file [" + mySQL.databaseName() + "]\nInternal error message:\n"
                               + mySQL.lastError().text());
         QApplication::quit();       // This command is in fact  useless.
         ui->pushButton_Start->setEnabled(false);
@@ -176,7 +180,7 @@ void MainWindow::on_pushButton_Start_clicked()
 
     for (int i = 0; i < allCats->count(); i++)
         qDebug() << allCats->at(i)->name + ": " + QString::number(allCats->at(i)->ttsOption);
-    QRegExp rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_NumberstoLearn->text().split(rx);
 
     int t = 0;
@@ -243,7 +247,7 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 {
     QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
 
-    QRegExp rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_IntervalNum->text().split(rx);
     if (number.count() == 2) {
         settings.setValue("Interval", QString::number(number.at(0).toInt()) + ", " + QString::number(number.at(1).toInt()));

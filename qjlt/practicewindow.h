@@ -1,24 +1,22 @@
 #ifndef PRACTICEWINDOW_H
 #define PRACTICEWINDOW_H
 
-#include <QDateTime>
-#include <QMainWindow>
-#include <QtSql>
-#include <QLabel>
-#include <QtGui>
-#include <QtWidgets>
-#include <QSpacerItem>
-#include <QProgressBar>
-#include <QShortcut>
-#include <QKeySequence>
-#include <QSignalMapper>
-#include <QMap>
-#include <QDir>
 #include "mainwindow.h"
-//#include "search.h"
-#include "downloader.h"
-#include "msgbox.h"
-#include "bmbox.h"
+
+#include <QDateTime>
+#include <QDir>
+#include <QKeySequence>
+#include <QLabel>
+#include <QMainWindow>
+#include <QMap>
+#include <QProgressBar>
+#include <QRandomGenerator>
+#include <QShortcut>
+#include <QSignalMapper>
+#include <QSpacerItem>
+#include <QtGui>
+#include <QtSql>
+#include <QtWidgets>
 
 namespace Ui {
 class PracticeWindow;
@@ -113,6 +111,8 @@ private:
     bool isAndroid;
 
     int concurrentEventOnQuestionTextChanged = 0;
+
+    QRandomGenerator ranGen;
 
     void initStatusBar();
     void initUI();

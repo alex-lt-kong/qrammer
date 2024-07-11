@@ -1,5 +1,12 @@
 #include "practicewindow.h"
+#include "bmbox.h"
+#include "downloader.h"
+#include "msgbox.h"
 #include "ui_practicewindow.h"
+
+#include <QAudioOutput>
+#include <QRandomGenerator>
+#include <QRegularExpression>
 
 PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
     QMainWindow(parent),
@@ -13,9 +20,12 @@ PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
     this->mySQL = mySQL;
 
     player = new QMediaPlayer(this);
-    player->setVolume(50);
+    // player->setVolume(50);
+    auto audioOutput = new QAudioOutput;
+    player->setAudioOutput(audioOutput);
+    audioOutput->setVolume(50);
 
-    qsrand(static_cast<uint>(QTime::currentTime().msec()));
+    ranGen = QRandomGenerator(static_cast<uint>(QTime::currentTime().msec()));
 
     timerDelay = new QTimer(this);
     connect(timerDelay, SIGNAL(timeout()), this, SLOT(tmrInterval()));
@@ -70,9 +80,9 @@ void PracticeWindow::initUI()
 
     const int tabStop = 4;  // 4 characters
     QFontMetrics metrics(ui->textEdit_Answer->font());
-    ui->textEdit_Question->setTabStopDistance(tabStop * metrics.width(' '));
-    ui->textEdit_Answer->setTabStopDistance(tabStop * metrics.width(' '));
-    ui->textEdit_Draft->setTabStopDistance(tabStop * metrics.width(' '));
+    ui->textEdit_Question->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
+    ui->textEdit_Answer->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
+    ui->textEdit_Draft->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
 
     adaptTexteditHeight(ui->textEdit_Info);
 }
@@ -325,48 +335,56 @@ void PracticeWindow::initNextKU()
 
     v1 = "Cat: " + cku_Category;
     v2 = "Category: " + cku_Category;
-    (isAndroid || fm.width(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
     v1 = "Times: " + QString::number(cku_TimesPracticed);
     v2 = "Times Practiced: " + QString::number(cku_TimesPracticed);
-    (fm.width(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
     v1 =  "Score: " + QString::number(cku_PreviousScore, 'f', 0);
     v2 = "Previous Score: " + QString::number(cku_PreviousScore, 'f', 1);
-    (isAndroid || fm.width(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
     v1 = "Insert: " + (cku_InsertTime.isNull() ? "nul" : cku_InsertTime.toString("yyyyMMdd"));
     v2 = "Insert: " + (cku_InsertTime.isNull() ? "<null>" : cku_InsertTime.toString("yyyy-MM-dd"));
-    (fm.width(v2) < winWidth / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
+    (fm.horizontalAdvance(v2) < winWidth / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
 
     v1 = "First: " + (cku_FirstPracticeTime.isNull() ? "nul" : cku_FirstPracticeTime.toString("yyyyMMdd"));
     v2 = "First Practice: " + (cku_FirstPracticeTime.isNull() ? "<null>" : cku_FirstPracticeTime.toString("yyyy-MM-dd"));
-    if (fm.width(v2) < winWidth * 1.1 / 9.0) infos[i++] = v2;
-    else if (fm.width(v1) < winWidth * 2 / 9.0) infos[i++] = v1;
+    if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
+        infos[i++] = v2;
+    else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
+        infos[i++] = v1;
 
     v1 = "Min Used: " + QString::number(cku_SecSpent / 60);
     v2 = "Minutes Used: " + QString::number(cku_SecSpent / 60);
-    if (fm.width(v2) < winWidth * 1.1 / 9.0) infos[i++] = v2;
-    else if (fm.width(v1) < winWidth * 2 / 9.0) infos[i++] = v1;
+    if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
+        infos[i++] = v2;
+    else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
+        infos[i++] = v1;
 
     v1 =  "Last: " + (cku_LastPracticeTime.isNull() ? "nul" : cku_LastPracticeTime.toString("yyyyMMdd"));
     v2 =  "Last Practice: " + (cku_LastPracticeTime.isNull() ? "<null>" : cku_LastPracticeTime.toString("yyyy-MM-dd"));
-    if (fm.width(v2) < winWidth *1.1 / 9.0) infos[i++] = v2;
-    else if (fm.width(v1) < winWidth * 2 / 9.0) infos[i++] = v1;
+    if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
+        infos[i++] = v2;
+    else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
+        infos[i++] = v1;
 
     v1 = "DDL: " + (cku_Deadline.isNull() ? "nul" : cku_Deadline.toString("yyyyMMdd"));
     v2 = "Deadline: " + (cku_Deadline.isNull() ? "<null>" : cku_Deadline.toString("yyyy-MM-dd"));
-    (fm.width(v2) < winWidth / 9.0) ? infos[i++] = v2 : infos[i++] = v1;
+    (fm.horizontalAdvance(v2) < winWidth / 9.0) ? infos[i++] = v2 : infos[i++] = v1;
 
     v1 = "Client: " + (cku_ClientName.length() == 0 ? "nul" : cku_ClientName);
     v2 = "Client Name: " + (cku_ClientName.length() == 0 ? "<null>" : cku_ClientName);
-    if (fm.width(v2) < winWidth / 9.0) infos[i++] = v2;
-    else if (fm.width(v1) < winWidth * 2 / 9.0) infos[i++] = v1;
+    if (fm.horizontalAdvance(v2) < winWidth / 9.0)
+        infos[i++] = v2;
+    else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
+        infos[i++] = v1;
 
     if (isAndroid || winWidth <= 1200) {
         v1 = "Prog.: " + QString::number(totalKU - outstandingKU + 1) + "/" + QString::number(totalKU);
         v2 = "Progress: " + QString::number(totalKU - outstandingKU + 1) + "/" + QString::number(totalKU);
-        (fm.width(v2) < winWidth * 1.9 / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
+        (fm.horizontalAdvance(v2) < winWidth * 1.9 / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
 
         ui->progressBar_Learning->setVisible(false);
     } else {
@@ -413,7 +431,7 @@ void PracticeWindow::initNextKU()
 
 int PracticeWindow::determineCategoryforNewKU()
 {
-    int r = qrand() % outstandingKU;
+    int r = ranGen.generate() % outstandingKU;
     int s = 0;
 
     for (int i = 0; i < availableCategory->count(); i++) {
@@ -454,12 +472,13 @@ void PracticeWindow::loadNewKU(int depth)
         double urgencyIndex = 1 - (qPow(static_cast<double>(TotalNum - dueNum) / TotalNum, 0.0275 * TotalNum + dueNum) * 0.65);
         qDebug() << "urgencyIndex = " << urgencyIndex;
         QString columns = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, first_practice_time, last_practice_time, deadline, client_name, category, time_used";
-        qDebug() << "[Random number compared to urgencyIndex] (double)qrand() / RAND_MAX: " << static_cast<double>(qrand()) / RAND_MAX;
-        if (static_cast<double>(qrand()) / RAND_MAX < urgencyIndex) {
+        qDebug() << "[Random number compared to urgencyIndex] (double)qrand() / RAND_MAX: "
+                 << static_cast<double>(ranGen.generateDouble()) / RAND_MAX;
+        if (static_cast<double>(ranGen.generate()) / RAND_MAX < urgencyIndex) {
             query->prepare("SELECT " + columns + " FROM knowledge_units WHERE category = :category AND deadline <= DATETIME('now', 'localtime') AND is_shelved = 0 ORDER BY RANDOM() LIMIT 1");
             query->bindValue(":category", availableCategory->at(currCatIndex)->name);
         } else {
-            if (qrand() % 100 <= NKI) {
+            if (ranGen.generate() % 100 <= NKI) {
                 query->prepare("SELECT " + columns + " FROM knowledge_units WHERE category = :category AND times_practiced = 0 AND is_shelved = 0 ORDER BY RANDOM() LIMIT 1");
                 query->bindValue(":category", availableCategory->at(currCatIndex)->name);
             } else {
@@ -576,7 +595,7 @@ void PracticeWindow::adaptTexteditHeight(QTextEdit *textedit)
     while (!textedit->verticalScrollBar()->isVisible() && textedit->height() > 0)
         textedit->setFixedHeight(textedit->height() - 1);
 
-    QRect geo = QApplication::desktop()->availableGeometry(this);
+    QRect geo = QApplication::primaryScreen()->availableGeometry();
 
     double heightLimit = this->height() > QGuiApplication::primaryScreen()->availableGeometry().height() ? this->height() : QGuiApplication::primaryScreen()->availableGeometry().height();
     while (textedit->verticalScrollBar()->isVisible() &&
@@ -759,11 +778,11 @@ void PracticeWindow::setWindowStyle()
 
     if (windowStyle == 1000) {
         QWidget::showNormal();
-        QRect geo = QApplication::desktop()->availableGeometry(this);
+        QRect geo = QApplication::primaryScreen()->availableGeometry();
         this->setGeometry(0, titlebarHeight, geo.width() / 3, geo.height() - titlebarHeight);
     } else if (windowStyle == 0001) {
         QWidget::showNormal();
-        QRect geo = QApplication::desktop()->availableGeometry(this);
+        QRect geo = QApplication::primaryScreen()->availableGeometry();
         setGeometry(geo.width() / 3 * 2, titlebarHeight, geo.width() / 3 , geo.height() - titlebarHeight);
     } else {
         this->showMaximized();        
@@ -771,7 +790,7 @@ void PracticeWindow::setWindowStyle()
         if (QGuiApplication::primaryScreen()->size().width() < this->size().width()) {
             // This ugly hack is to ensure that the window is maximized correctly.
             // Sometimes, on Android platform, the width of the window would be much larger then the exact screen.
-            QRect geo = QApplication::desktop()->availableGeometry(this);
+            QRect geo = QApplication::QApplication::primaryScreen()->availableGeometry();
             geo.setWidth(QGuiApplication::primaryScreen()->size().width());
             this->setGeometry(geo);
         }
@@ -785,7 +804,7 @@ void PracticeWindow::setWindowStyle()
 QString PracticeWindow::convertStringToFilename(QString name)
 {
     QString output(name.normalized(QString::NormalizationForm_D));
-    output.replace(QRegExp("[^a-zA-Z,'.-() \\s]"), "_");
+    output.replace(QRegularExpression("[^a-zA-Z,'.-() \\s]"), "_");
     if (output.length() > 100)
         output = output.mid(0, 45 + (output.length() % 7)) + "..." + output.mid(output.length() - 51 + (output.length() % 3));
     return output;
@@ -821,7 +840,7 @@ void PracticeWindow::handleTTS(bool isQuestion)
     if (isTTSEnabled) {
         QFileInfo check_file(sanitizedFilepath);
         if (check_file.exists() && check_file.isFile()) {
-            player->setMedia(QUrl::fromLocalFile(sanitizedFilepath));
+            player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
             player->play();
         } else {
             ttsDownloader->doDownload("http://dict.youdao.com/dictvoice?audio=" + originalText + "&amp;amp;le=eng%3C", sanitizedFilepath);
