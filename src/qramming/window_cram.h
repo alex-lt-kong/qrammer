@@ -1,7 +1,7 @@
-#ifndef PRACTICEWINDOW_H
-#define PRACTICEWINDOW_H
+#ifndef WINDOW_CRAM_H
+#define WINDOW_CRAM_H
 
-#include "mainwindow.h"
+#include "window_overview.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -152,4 +152,4 @@ private:
 };
 
 
-#endif // PRACTICEWINDOW_H
+#endif // WINDOW_CRAM_H

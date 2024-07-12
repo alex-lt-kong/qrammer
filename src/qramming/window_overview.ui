@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Mamsds QJoint Learning Tool</string>
+   <string>Qramming - overview</string>
   </property>
   <property name="windowIcon">
    <iconset resource="res.qrc">

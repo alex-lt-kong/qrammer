@@ -1,1 +1,3 @@
-# q-joint-learning-tool
+# Qramming suite
+
+- A set of exciting tools for cramming, but in Qt.

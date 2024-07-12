@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef WINDOW_OVERVIEW_H
+#define WINDOW_OVERVIEW_H
 
 #include <QMainWindow>
 #include <QtDebug>
@@ -70,4 +70,4 @@ private:
     QList<CategoryMetaData*> *allCats;
     };
 
-#endif // MAINWINDOW_H
+#endif // WINDOW_OVERVIEW_H

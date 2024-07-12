@@ -1,6 +1,6 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "practicewindow.h"
+#include "window_overview.h"
+#include "ui_window_overview.h"
+#include "window_cram.h"
 
 #include <QRegularExpression>
 

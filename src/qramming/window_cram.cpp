@@ -1,8 +1,8 @@
-#include "practicewindow.h"
+#include "window_cram.h"
 #include "bmbox.h"
 #include "downloader.h"
 #include "msgbox.h"
-#include "ui_practicewindow.h"
+#include "ui_window_cram.h"
 
 #include <QAudioOutput>
 #include <QRandomGenerator>
@@ -111,7 +111,7 @@ void PracticeWindow::initPlatformSpecificSettings()
         ui->label_PassingScore->setVisible(false);
         ui->comboBox_Score->setEditable(false);
         ui->label_Score->setVisible(false);
-        ui->Label_NewScore->setVisible(false);
+        ui->label_NewScore->setVisible(false);
 
     } else {
         isAndroid = false;
@@ -314,8 +314,8 @@ void PracticeWindow::initNextKU()
         ui->comboBox_Score->setCurrentIndex(0);
 
     ui->comboBox_Score->setEnabled(false);
-    ui->Label_NewScore->setText(": <null>");
-    ui->Label_NewScore->setStyleSheet("QLabel { color : black; }");
+    ui->label_NewScore->setText(": <null>");
+    ui->label_NewScore->setStyleSheet("QLabel { color : black; }");
 
     ui->pushButton_Check->setEnabled(true);
     ui->pushButton_Next->setEnabled(false);
@@ -539,12 +539,12 @@ void PracticeWindow::on_comboBox_Score_currentTextChanged(const QString &)
         double t = ui->comboBox_Score->currentText().toDouble();
 
         double newScore = calculateNewPreviousScore(t);
-        ui->Label_NewScore->setText(": " + QString::number(newScore, 'f', 1));
+        ui->label_NewScore->setText(": " + QString::number(newScore, 'f', 1));
 
         if (newScore > cku_PreviousScore)
-            ui->Label_NewScore->setStyleSheet("QLabel { color : green; }");
+            ui->label_NewScore->setStyleSheet("QLabel { color : green; }");
         else if (newScore < cku_PreviousScore)
-            ui->Label_NewScore->setStyleSheet("QLabel { color : red; }");
+            ui->label_NewScore->setStyleSheet("QLabel { color : red; }");
 
     }
 }
