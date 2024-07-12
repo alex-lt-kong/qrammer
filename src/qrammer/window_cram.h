@@ -22,13 +22,13 @@ namespace Ui {
 class PracticeWindow;
 }
 
-class PracticeWindow : public QMainWindow
+class CrammingWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit PracticeWindow(QWidget *parent = 0, QSqlDatabase mySQL = QSqlDatabase::addDatabase("QSQLITE"));
-    ~PracticeWindow();
+    explicit CrammingWindow(QWidget *parent = 0, QSqlDatabase mySQL = QSqlDatabase::addDatabase("QSQLITE"));
+    ~CrammingWindow();
     void init(QList<CategoryMetaData*> *availableCategory, int NKI, int nnterval, int number, int windowStyle);
     void initNextKU();
 

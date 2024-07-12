@@ -9,9 +9,9 @@
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
 
-PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
-    QMainWindow(parent),
-    ui(new Ui::PracticeWindow)
+CrammingWindow::CrammingWindow(QWidget *parent, QSqlDatabase mySQL)
+    : QMainWindow(parent)
+    , ui(new Ui::PracticeWindow)
 {
     ui->setupUi(this);
 
@@ -42,12 +42,12 @@ PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
 //    setWindowStyle();    
 }
 
-PracticeWindow::~PracticeWindow()
+CrammingWindow::~CrammingWindow()
 {
     delete ui;
 }
 
-void PracticeWindow::closeEvent (QCloseEvent *event)
+void CrammingWindow::closeEvent(QCloseEvent *event)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this,
                                                                "Qrammer",
@@ -62,7 +62,7 @@ void PracticeWindow::closeEvent (QCloseEvent *event)
     }
 }
 
-void PracticeWindow::showEvent(QShowEvent *event)
+void CrammingWindow::showEvent(QShowEvent *event)
 {
     if (isAndroid) { // This function is needed for android, otherwise the first KU will not be loaded correctly.
       // The implementation is copied from: https://stackoverflow.com/questions/3752742/how-do-i-create-a-pause-wait-function-using-qt
@@ -73,7 +73,7 @@ void PracticeWindow::showEvent(QShowEvent *event)
     }
 }
 
-void PracticeWindow::initUI()
+void CrammingWindow::initUI()
 {
     ui->lineEdit_PassingScore->setValidator( new QIntValidator(0, 99, this));
 
@@ -89,7 +89,7 @@ void PracticeWindow::initUI()
     adaptTexteditHeight(ui->textEdit_Info);
 }
 
-void PracticeWindow::initPlatformSpecificSettings()
+void CrammingWindow::initPlatformSpecificSettings()
 {    
     if (QGuiApplication::platformName() == "android") {
         isAndroid = true;
@@ -130,7 +130,8 @@ void PracticeWindow::initPlatformSpecificSettings()
     }
 }
 
-void PracticeWindow::init(QList<CategoryMetaData *> *availableCat, int NKI, int interval, int number, int windowStyle)
+void CrammingWindow::init(
+    QList<CategoryMetaData *> *availableCat, int NKI, int interval, int number, int windowStyle)
 {
     this->availableCategory = availableCat;
     this->NKI = NKI;
@@ -145,7 +146,7 @@ void PracticeWindow::init(QList<CategoryMetaData *> *availableCat, int NKI, int 
     outstandingKU = totalKU;
 }
 
-void PracticeWindow::on_pushButton_Next_clicked()
+void CrammingWindow::on_pushButton_Next_clicked()
 {
     if (!ui->pushButton_Next->isEnabled())
         return;    
@@ -162,14 +163,14 @@ void PracticeWindow::on_pushButton_Next_clicked()
     }
 }
 
-void PracticeWindow::startInterval()
+void CrammingWindow::startInterval()
 {
     secDelayed = 0;
     hide();
     timerDelay->start(1000);
 }
 
-void PracticeWindow::tmrInterval()
+void CrammingWindow::tmrInterval()
 {
     if (bossMode) {
         secDelayed = 0;
@@ -199,7 +200,7 @@ void PracticeWindow::tmrInterval()
     }
 }
 
-void PracticeWindow::on_pushButton_Check_clicked()
+void CrammingWindow::on_pushButton_Check_clicked()
 {
     if (!ui->pushButton_Check->isEnabled())
         return;
@@ -218,7 +219,7 @@ void PracticeWindow::on_pushButton_Check_clicked()
 }
 
 // The return value means "if it is okay to start the next ku"
-bool PracticeWindow::finalizeLastKU()
+bool CrammingWindow::finalizeLastKU()
 {
     if (availableCategory->at(currCatIndex)->number <= 0) {
         QMessageBox::warning(this,
@@ -302,7 +303,7 @@ bool PracticeWindow::finalizeLastKU()
     return false;
 }
 
-void PracticeWindow::initNextKU()
+void CrammingWindow::initNextKU()
 {
     this->setUpdatesEnabled(false);
 
@@ -433,7 +434,7 @@ void PracticeWindow::initNextKU()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 }
 
-int PracticeWindow::determineCategoryforNewKU()
+int CrammingWindow::determineCategoryforNewKU()
 {
     int r = ranGen.generate() % outstandingKU;
     int s = 0;
@@ -447,7 +448,7 @@ int PracticeWindow::determineCategoryforNewKU()
     return -1;
 }
 
-void PracticeWindow::loadNewKU(int recursion_depth)
+void CrammingWindow::loadNewKU(int recursion_depth)
 {
     currCatIndex = determineCategoryforNewKU();
     QString msg
@@ -478,15 +479,20 @@ WHERE
     query->bindValue(":category", availableCategory->at(currCatIndex)->name);
 
     int dueNum = 0;
-    if (query->exec() & query->next())
+    if (!query->exec()) {
+        auto errMsg = QString("Error executing query: %1").arg(query->lastError().text());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
+        return;
+    } else if (query->next()) {
         dueNum = query->value(0).toInt();
-    else {
-        QMessageBox::warning(this,
-                             "Qrammer - Warning",
-                             "Cannot get dueNum from database!\n\nThis error is very rare, report "
-                             "it to mamsds IMMEDIATELY if you see it");
+    } else {
+        auto errMsg = QString("Error querying dueNum").arg(query->lastError().text());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
         return;
     }
+
     query->prepare(R"***(
 SELECT COUNT(*)
 FROM knowledge_units
@@ -597,7 +603,7 @@ ORDER BY RANDOM() LIMIT 1";
     db.close();
 }
 
-void PracticeWindow::on_comboBox_Score_currentTextChanged(const QString &)
+void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
 {
 
     ui->pushButton_Next->setEnabled(true);
@@ -616,7 +622,7 @@ void PracticeWindow::on_comboBox_Score_currentTextChanged(const QString &)
     }
 }
 
-double PracticeWindow::calculateNewPreviousScore(double newScore)
+double CrammingWindow::calculateNewPreviousScore(double newScore)
 {
     double timesPracticed =  cku_TimesPracticed <= 9 ? cku_TimesPracticed : 9;
     double previousScore = cku_PreviousScore;
@@ -626,7 +632,7 @@ double PracticeWindow::calculateNewPreviousScore(double newScore)
     return previousScore;
 }
 
-void PracticeWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
+void CrammingWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
 {
     if (textedit == nullptr) return;
 
@@ -655,7 +661,7 @@ void PracticeWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
     textedit -> ensureCursorVisible();
 }
 
-void PracticeWindow::adaptTexteditHeight(QTextEdit *textedit)
+void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
 {
     if (!textedit) return;
 
@@ -675,7 +681,7 @@ void PracticeWindow::adaptTexteditHeight(QTextEdit *textedit)
 
 }
 
-void PracticeWindow::adaptSkipButton()
+void CrammingWindow::adaptSkipButton()
 {
     if (ui->horizontalSpacer->geometry().width() > ui->pushButton_Skip->width() || isAndroid == true)
         ui->pushButton_Skip->setVisible(true);
@@ -684,7 +690,7 @@ void PracticeWindow::adaptSkipButton()
     }
 }
 
-void PracticeWindow::finishLearning()
+void CrammingWindow::finishLearning()
 {
     QString temp;
     for (int i = 0; i < availableCategory->count(); i++)
@@ -701,7 +707,7 @@ void PracticeWindow::finishLearning()
     QApplication::quit();
 }
 
-void PracticeWindow::initContextMenu()
+void CrammingWindow::initContextMenu()
 {    
     menuQuestion = new QMenu(this);
     menuAnswer = new QMenu(this);
@@ -761,7 +767,7 @@ void PracticeWindow::initContextMenu()
 
 }
 
-void PracticeWindow::initTrayMenu()
+void CrammingWindow::initTrayMenu()
 {
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(":/Main.ico"));
@@ -790,22 +796,22 @@ void PracticeWindow::initTrayMenu()
     trayIcon->setContextMenu(menuTray);
 }
 
-void PracticeWindow::showContextMenu_Question(const QPoint &pt)
+void CrammingWindow::showContextMenu_Question(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Question, menuQuestion, pt);
 }
 
-void PracticeWindow::showContextMenu_Answer(const QPoint &pt)
+void CrammingWindow::showContextMenu_Answer(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Answer, menuAnswer, pt);
 }
 
-void PracticeWindow::showContextMenu_Blank(const QPoint &pt)
+void CrammingWindow::showContextMenu_Blank(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Draft, menuBlank, pt);
 }
 
-void PracticeWindow::showContextMenu_Common(QTextEdit *edit, QMenu* menu, const QPoint &pt)
+void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const QPoint &pt)
 {
     QPoint globalPos = edit->mapToGlobal(pt);
 
@@ -831,7 +837,7 @@ void PracticeWindow::showContextMenu_Common(QTextEdit *edit, QMenu* menu, const 
     }
 }
 
-void PracticeWindow::setWindowStyle()
+void CrammingWindow::setWindowStyle()
 {
     if (!isVisible())       // This condition is needed since this function can accidentally show the window when it should be hidden.
         return;
@@ -867,7 +873,7 @@ void PracticeWindow::setWindowStyle()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);        // To make sure the resize is implemented before next step.
 }
 
-QString PracticeWindow::convertStringToFilename(QString name)
+QString CrammingWindow::convertStringToFilename(QString name)
 {
     QString output;
     for (const auto c : name) {
@@ -879,7 +885,7 @@ QString PracticeWindow::convertStringToFilename(QString name)
     return output;
 }
 
-void PracticeWindow::handleTTS(bool isQuestion)
+void CrammingWindow::handleTTS(bool isQuestion)
 {
     QString sanitizedFilepath, originalText, sanitizedFilename;
     TTSDownloader *ttsDownloader = new TTSDownloader(this);
@@ -909,13 +915,15 @@ void PracticeWindow::handleTTS(bool isQuestion)
     if (isTTSEnabled) {
         QFileInfo check_file(sanitizedFilepath);
         if (check_file.exists() && check_file.isFile()) {
-            SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath);
+            SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath.toStdString());
             player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
             player->play();
         } else {
             auto url = "http://dict.youdao.com/dictvoice?audio=" + originalText
                        + "&amp;amp;le=eng%3C";
-            SPDLOG_INFO("Start downloading TTS file from {} to {}", url, sanitizedFilepath);
+            SPDLOG_INFO("Start downloading TTS file from {} to {}",
+                        url.toStdString(),
+                        sanitizedFilepath.toStdString());
             ttsDownloader->doDownload(url, sanitizedFilepath);
             // http, instead of https, is used here.
             // If https is used, the program would encounter a "TLS initialization failed" error on Windows. Not sure what would happen on Linux
@@ -926,7 +934,7 @@ void PracticeWindow::handleTTS(bool isQuestion)
     //Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
 }
 
-void PracticeWindow::on_actionResetTimer_triggered()
+void CrammingWindow::on_actionResetTimer_triggered()
 {
     if (bossMode) {
         return;
@@ -936,7 +944,7 @@ void PracticeWindow::on_actionResetTimer_triggered()
     }
 }
 
-void PracticeWindow::on_actionBossMode_triggered()
+void CrammingWindow::on_actionBossMode_triggered()
 {
     bossMode = !bossMode;
     if (bossMode){
@@ -957,8 +965,7 @@ void PracticeWindow::on_actionBossMode_triggered()
     }
 }
 
-
-void PracticeWindow::on_actionStartLearning_triggered()
+void CrammingWindow::on_actionStartLearning_triggered()
 {
     if (bossMode) {
         return;
@@ -968,7 +975,7 @@ void PracticeWindow::on_actionStartLearning_triggered()
     }
 }
 
-void PracticeWindow::on_actionExit_triggered()
+void CrammingWindow::on_actionExit_triggered()
 {
     if (bossMode) {
         return;
@@ -980,7 +987,7 @@ void PracticeWindow::on_actionExit_triggered()
     }
 }
 
-void PracticeWindow::resizeEvent(QResizeEvent *event)
+void CrammingWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     adaptTexteditHeight(ui->textEdit_Question);
@@ -990,7 +997,7 @@ void PracticeWindow::resizeEvent(QResizeEvent *event)
     adaptSkipButton();
 }
 
-void PracticeWindow::keyPressEvent(QKeyEvent *event)
+void CrammingWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
         on_pushButton_Check_clicked();
@@ -1028,18 +1035,18 @@ void PracticeWindow::keyPressEvent(QKeyEvent *event)
     QMainWindow::keyPressEvent(event);
 }
 
-void PracticeWindow::on_pushButton_Skip_clicked()
+void CrammingWindow::on_pushButton_Skip_clicked()
 {
     initNextKU();
 }
 
-void PracticeWindow::on_textEdit_Question_textChanged()
+void CrammingWindow::on_textEdit_Question_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Question);
     setWindowStyle();
 }
 
-void PracticeWindow::on_textEdit_Draft_textChanged()
+void CrammingWindow::on_textEdit_Draft_textChanged()
 {
   //  return;
    // if (isAndroid && ui->textEdit_Draft->isVisible())
@@ -1048,29 +1055,31 @@ void PracticeWindow::on_textEdit_Draft_textChanged()
     setWindowStyle();
 }
 
-void PracticeWindow::on_textEdit_Info_textChanged()
+void CrammingWindow::on_textEdit_Info_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Info);
     setWindowStyle();
 }
 
-void PracticeWindow::on_pushButton_Skip_pressed()
+void CrammingWindow::on_pushButton_Skip_pressed()
 {
-    PracticeWindow::on_pushButton_Skip_clicked();
+    CrammingWindow::on_pushButton_Skip_clicked();
 }
 
-void PracticeWindow::on_pushButton_Check_pressed()
+void CrammingWindow::on_pushButton_Check_pressed()
 {
-    PracticeWindow::on_pushButton_Check_clicked();
+    CrammingWindow::on_pushButton_Check_clicked();
 }
 
-void PracticeWindow::on_pushButton_Next_pressed()
+void CrammingWindow::on_pushButton_Next_pressed()
 {
-    PracticeWindow::on_pushButton_Next_clicked();
+    CrammingWindow::on_pushButton_Next_clicked();
 }
 
 // Return value: If user would like to retry the same database operation
-bool PracticeWindow::handleDatabaseOperationError(QString operationName, QString dbPath, QString lastError)
+bool CrammingWindow::handleDatabaseOperationError(QString operationName,
+                                                  QString dbPath,
+                                                  QString lastError)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::warning(this,
                                                               "Qrammer - Database Operation Error",
@@ -1087,7 +1096,7 @@ bool PracticeWindow::handleDatabaseOperationError(QString operationName, QString
         return false;
 }
 
-void PracticeWindow::on_pushButton_Switch_pressed()
+void CrammingWindow::on_pushButton_Switch_pressed()
 {
     if (ui->textEdit_DraftAndroid->isVisible()) {
         ui->textEdit_Draft->setVisible(false);

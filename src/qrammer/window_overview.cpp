@@ -228,7 +228,7 @@ void MainWindow::on_pushButton_Start_clicked()
         return;
     }
 
-    PracticeWindow *pW = new PracticeWindow(nullptr, db);
+    CrammingWindow *pW = new CrammingWindow(nullptr, db);
 
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
