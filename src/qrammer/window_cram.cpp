@@ -7,6 +7,7 @@
 #include <QAudioOutput>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <spdlog/spdlog.h>
 
 PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
     QMainWindow(parent),
@@ -17,7 +18,7 @@ PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
     initTrayMenu();
     initPlatformSpecificSettings();
 
-    this->mySQL = mySQL;
+    this->db = mySQL;
 
     player = new QMediaPlayer(this);
     // player->setVolume(50);
@@ -33,7 +34,7 @@ PracticeWindow::PracticeWindow(QWidget *parent, QSqlDatabase mySQL) :
     initUI();
     initContextMenu();
 
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
     clientName = settings.value("ClientName", "QJLT-Unspecified").toString();
 
 //    initNextKU();
@@ -48,10 +49,11 @@ PracticeWindow::~PracticeWindow()
 
 void PracticeWindow::closeEvent (QCloseEvent *event)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question( this, "Mamsds QJLT",
-                                                                tr("Are you sure to quit?\n"),
-                                                                QMessageBox::No | QMessageBox::Yes,
-                                                                QMessageBox::Yes);
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this,
+                                                               "Qrammer",
+                                                               tr("Are you sure to quit?\n"),
+                                                               QMessageBox::No | QMessageBox::Yes,
+                                                               QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
             event->ignore();
     } else {
@@ -91,17 +93,9 @@ void PracticeWindow::initPlatformSpecificSettings()
 {    
     if (QGuiApplication::platformName() == "android") {
         isAndroid = true;
-        parentDir = "/sdcard/JLT";
+        parentDir = "/sdcard/Qrammer";
 
         ui->pushButton_Switch->setVisible(true);
-//        ui->pushButton_Switch->setMinimumWidth(160);
-     //   qDebug() << "ui->pushButton_Switch->width()" << ui->pushButton_Switch->width();
-  //      ui->pushButton_Skip->setMinimumWidth(140);
-    //    ui->pushButton_Check->setMinimumWidth(155);
-      //  ui->pushButton_Next->setMinimumWidth(150);
-
-        //ui->comboBox_Score->setMinimumWidth(150);
-        // the above width limitation is to ensure all four buttons can be shown on a not-so-big-size Android device.
 
         ui->textEdit_Draft->setVisible(false);
         ui->lineEdit_PassingScore->setVisible(false);
@@ -127,7 +121,7 @@ void PracticeWindow::initPlatformSpecificSettings()
     ui->textEdit_DraftAndroid->setVisible(false);   //No matter if program is running on Android, this textEdit should be hide by default.
 
     if (!isAndroid) {
-        QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+        QSettings settings("AKStudio", "Qrammer");
         QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
         this->setStyleSheet(styleSheet);
     } else {
@@ -227,7 +221,9 @@ void PracticeWindow::on_pushButton_Check_clicked()
 bool PracticeWindow::finalizeLastKU()
 {
     if (availableCategory->at(currCatIndex)->number <= 0) {
-        QMessageBox::warning(this, "Mamsds QJLT - Warning", "Logic error, this should not happen at all!");
+        QMessageBox::warning(this,
+                             "Qrammer - Warning",
+                             "Logic error, this should not happen at all!");
         return false; // to be considered: return true or false?
     }
 
@@ -245,15 +241,17 @@ bool PracticeWindow::finalizeLastKU()
     }
 
     while (true) {
-
-        if (!mySQL.open()) {
-            if (handleDatabaseOperationError("open database", mySQL.databaseName(), mySQL.lastError().databaseText() + "\n" + mySQL.lastError().driverText()))
+        if (!db.open()) {
+            if (handleDatabaseOperationError("open database",
+                                             db.databaseName(),
+                                             db.lastError().databaseText() + "\n"
+                                                 + db.lastError().driverText()))
                 continue;
             else
                 break;
         }
 
-        QSqlQuery *query = new QSqlQuery(mySQL);
+        QSqlQuery *query = new QSqlQuery(db);
         query->prepare(QString("UPDATE knowledge_units SET last_practice_time = DATETIME('Now', 'localtime'), previous_score = :previous_score, question = :question, answer = :answer, times_practiced = :times_practiced, ") +
                        "passing_score = :passing_score, " + "deadline = " + (hasDeadline ? ("DATETIME('Now', 'localtime', '" + QString::number(addedDays) + " day')") : "null") + ", " +
                        "client_name = :client_name, time_used = time_used + :time_used WHERE id = :id");
@@ -267,7 +265,10 @@ bool PracticeWindow::finalizeLastKU()
         query->bindValue(":id", cku_ID);
 
         if (!query->exec()){
-            if (handleDatabaseOperationError("open database", mySQL.databaseName(), query->lastError().databaseText() + "\n" + query->lastError().driverText()))
+            if (handleDatabaseOperationError("open database",
+                                             db.databaseName(),
+                                             query->lastError().databaseText() + "\n"
+                                                 + query->lastError().driverText()))
                 continue;
             else break; // Need to consider whether this break is needed.
         }
@@ -276,13 +277,16 @@ bool PracticeWindow::finalizeLastKU()
             query->prepare("UPDATE knowledge_units SET first_practice_time = DATETIME('Now', 'localtime') WHERE id = :id");
             query->bindValue(":id", cku_ID);
             if (!query->exec()){
-                if (handleDatabaseOperationError("open database", mySQL.databaseName(), query->lastError().databaseText()+ "\n" + query->lastError().driverText()))
+                if (handleDatabaseOperationError("open database",
+                                                 db.databaseName(),
+                                                 query->lastError().databaseText() + "\n"
+                                                     + query->lastError().driverText()))
                     continue;
                 else break; // Need to consider whether this break is needed.
             }
         }
         query->finish();
-        mySQL.close();
+        db.close();
         break;
     }
 
@@ -443,91 +447,154 @@ int PracticeWindow::determineCategoryforNewKU()
     return -1;
 }
 
-void PracticeWindow::loadNewKU(int depth)
+void PracticeWindow::loadNewKU(int recursion_depth)
 {
     currCatIndex = determineCategoryforNewKU();
-    QString stravailableCategory = "";
+    QString msg
+        = QString("Loading new knowledge unit (recursion_depth: %1), remaining KUs by category: ")
+              .arg(recursion_depth);
     for (int i = 0; i < availableCategory->length(); i++) {
-       qDebug() << availableCategory->at(i)->name << ":\t" << availableCategory->at(i)->number;
+        msg += QString("%1: %2, ")
+                   .arg(availableCategory->at(i)->name)
+                   .arg(availableCategory->at(i)->number);
     }
-    if (mySQL.open()) {
-        QSqlQuery *query = new QSqlQuery(mySQL);
-
-        query->prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND deadline <= DATETIME('now', 'localtime') AND is_shelved = 0");
-        query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-
-        int dueNum = 0;
-        if (query->exec() & query->next())
-            dueNum = query->value(0).toInt();
-        else {
-            QMessageBox::warning(this, "Mamsds QJLT - Warning", "Cannot get dueNum from database!\n\nThis error is very rare, report it to mamsds IMMEDIATELY if you see it");
-            return;
-        }
-        query->prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND is_shelved = 0");
-        query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-        query->exec();
-        query->next();
-        int TotalNum = query->value(0).toInt();
-
-        double urgencyIndex = 1 - (qPow(static_cast<double>(TotalNum - dueNum) / TotalNum, 0.0275 * TotalNum + dueNum) * 0.65);
-        qDebug() << "urgencyIndex = " << urgencyIndex;
-        QString columns = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, first_practice_time, last_practice_time, deadline, client_name, category, time_used";
-        qDebug() << "[Random number compared to urgencyIndex] (double)qrand() / RAND_MAX: "
-                 << static_cast<double>(ranGen.generateDouble()) / RAND_MAX;
-        if (static_cast<double>(ranGen.generate()) / RAND_MAX < urgencyIndex) {
-            query->prepare("SELECT " + columns + " FROM knowledge_units WHERE category = :category AND deadline <= DATETIME('now', 'localtime') AND is_shelved = 0 ORDER BY RANDOM() LIMIT 1");
-            query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-        } else {
-            if (ranGen.generate() % 100 <= NKI) {
-                query->prepare("SELECT " + columns + " FROM knowledge_units WHERE category = :category AND times_practiced = 0 AND is_shelved = 0 ORDER BY RANDOM() LIMIT 1");
-                query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-            } else {
-                QString temp = "";
-                temp += "SELECT *";
-                temp += "FROM (SELECT " + columns;
-                temp += "      FROM  knowledge_units";
-                temp += "      WHERE category = :category";
-                temp += "      ORDER BY (previous_score - passing_score) ASC";
-                temp += "      LIMIT (SELECT ABS(RANDOM()) % (SELECT COUNT(id) + 1";
-                temp += "                                     FROM knowledge_units";
-                temp += "                                     WHERE category = :category AND is_shelved = 0)))";
-                temp += "ORDER BY RANDOM() LIMIT 1";
-                query->prepare(temp);
-                query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-            }
-        }
-
-        if (query->exec() && query->first()) {
-            int i = 0;
-            cku_ID = query->value(i++).toInt();
-            cku_Question = query->value(i++).toString();
-            cku_Answer = query->value(i++).toString();
-            cku_PassingScore = query->value(i++).toDouble();
-            cku_PreviousScore = query->value(i++).toDouble();
-            cku_TimesPracticed = query->value(i++).toInt();
-            cku_InsertTime = query->value(i++).toDateTime();
-            cku_FirstPracticeTime = query->value(i++).toDateTime();
-            cku_LastPracticeTime = query->value(i++).toDateTime();
-            cku_Deadline = query->value(i++).toDateTime();
-            cku_ClientName = query->value(i++).toString();
-            cku_Category = query->value(i++).toString();
-            cku_SecSpent = query->value(i++).toInt();
-            query->finish();
-        } else if (depth < 100) {
-            loadNewKU(++depth);
-        } else
-            QMessageBox::warning(this, "Mamsds QJLT - Warning", "Cannot load a new Knowledge Unit!\n\nThis error is very rare, report it to mamsds IMMEDIATELY if you see it");
-        ui->textEdit_Question->setPlainText(cku_Question);
-        adaptTexteditLineSpacing(ui->textEdit_Question);
-        adaptTexteditLineSpacing(ui->textEdit_Draft);
-    //    ui->plainTextEdit_Question->setPlainText(cku_Question);
-
-        mySQL.close();
-
-    }  else  {
-        QMessageBox::warning(this, "Mamsds QJLT - Warning", "Cannot open the databse:\n" + mySQL.lastError().text() + "\n\nThis error is very rare, report to mamsds IMMEDIATELY if you see it.");
+    SPDLOG_INFO(msg.toStdString());
+    if (!db.open()) {
+        auto errMsg = "Cannot open the databse:\n" + db.lastError().text();
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
         QApplication::quit();
     }
+    QSqlQuery *query = new QSqlQuery(db);
+    auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    deadline <= DATETIME('now', 'localtime') AND
+    is_shelved = 0
+)***";
+    query->prepare(stmt);
+    query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+
+    int dueNum = 0;
+    if (query->exec() & query->next())
+        dueNum = query->value(0).toInt();
+    else {
+        QMessageBox::warning(this,
+                             "Qrammer - Warning",
+                             "Cannot get dueNum from database!\n\nThis error is very rare, report "
+                             "it to mamsds IMMEDIATELY if you see it");
+        return;
+    }
+    query->prepare(R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE category = :category AND is_shelved = 0
+)***");
+    query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+    query->exec();
+    query->next();
+    int TotalNum = query->value(0).toInt();
+
+    double urgencyIndex = 1
+                          - (qPow(static_cast<double>(TotalNum - dueNum) / TotalNum,
+                                  0.0275 * TotalNum + dueNum)
+                             * 0.65);
+    SPDLOG_INFO("urgencyIndex = {}", urgencyIndex);
+    QString columns
+        = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, "
+          "first_practice_time, last_practice_time, deadline, client_name, category, time_used";
+    SPDLOG_INFO("[Random number compared to urgencyIndex] (double)qrand() / RAND_MAX: {}",
+                static_cast<double>(ranGen.generateDouble()) / RAND_MAX);
+    if (static_cast<double>(ranGen.generate()) / RAND_MAX < urgencyIndex) {
+        SPDLOG_INFO("SELECTing an urgent unit");
+        auto stmt = QString(R"***(
+SELECT %1
+FROM knowledge_units
+WHERE
+    category = :category AND
+    deadline <= DATETIME('now', 'localtime') AND
+    is_shelved = 0
+ORDER BY RANDOM()
+LIMIT 1
+)***")
+                        .arg(columns);
+        query->prepare(stmt);
+        query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+    } else {
+        if (ranGen.generate() % 100 <= NKI) {
+            SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
+            auto stmt = QString(R"***(
+SELECT %1
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced = 0 AND
+    is_shelved = 0
+ORDER BY RANDOM()
+LIMIT 1
+)***")
+                            .arg(columns);
+            query->prepare(stmt);
+            query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+        } else {
+            SPDLOG_INFO("Randomly SELECTing a unit");
+            auto stmt = QString(R"***(
+SELECT *
+FROM
+(
+    SELECT %1
+    FROM  knowledge_units
+    WHERE category = :category
+    ORDER BY (previous_score - passing_score) ASC
+    LIMIT
+    (
+        SELECT ABS(RANDOM()) %
+        (
+            SELECT COUNT(id) + 1
+            FROM knowledge_units
+            WHERE category = :category AND is_shelved = 0
+        )
+    )
+)
+ORDER BY RANDOM() LIMIT 1";
+)***")
+                            .arg(columns);
+            query->prepare(stmt);
+            query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+        }
+    }
+
+    if (query->exec() && query->first()) {
+        int i = 0;
+        cku_ID = query->value(i++).toInt();
+        cku_Question = query->value(i++).toString();
+        cku_Answer = query->value(i++).toString();
+        cku_PassingScore = query->value(i++).toDouble();
+        cku_PreviousScore = query->value(i++).toDouble();
+        cku_TimesPracticed = query->value(i++).toInt();
+        cku_InsertTime = query->value(i++).toDateTime();
+        cku_FirstPracticeTime = query->value(i++).toDateTime();
+        cku_LastPracticeTime = query->value(i++).toDateTime();
+        cku_Deadline = query->value(i++).toDateTime();
+        cku_ClientName = query->value(i++).toString();
+        cku_Category = query->value(i++).toString();
+        cku_SecSpent = query->value(i++).toInt();
+        query->finish();
+    } else if (recursion_depth < 100) {
+        loadNewKU(++recursion_depth);
+    } else
+        QMessageBox::warning(this,
+                             "Qrammer - Warning",
+                             "Cannot load a new Knowledge Unit!\n\nThis error is very rare, "
+                             "report it to mamsds IMMEDIATELY if you see it");
+    ui->textEdit_Question->setPlainText(cku_Question);
+    adaptTexteditLineSpacing(ui->textEdit_Question);
+    adaptTexteditLineSpacing(ui->textEdit_Draft);
+    //    ui->plainTextEdit_Question->setPlainText(cku_Question);
+
+    db.close();
 }
 
 void PracticeWindow::on_comboBox_Score_currentTextChanged(const QString &)
@@ -574,7 +641,7 @@ void PracticeWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
       textedit->setTextCursor(textcursor);
     }
 
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
     QFont font = this->font();          // This is a simple hack to ensure that the format of pasted text would not impact the TextEdit.
   //  if (QGuiApplication::platformName() == "windows") // This is still an ugly hack for Windows platform.
   //      font.setFamily("Microsoft Yahei");
@@ -664,9 +731,8 @@ void PracticeWindow::initContextMenu()
     menuBlank->addSeparator();
 
     SearchOptions = new QHash<QString, QString>;
-    if (mySQL.open()) {
-
-        QSqlQuery *query = new QSqlQuery(mySQL);
+    if (db.open()) {
+        QSqlQuery *query = new QSqlQuery(db);
 
         query->prepare("SELECT name, url FROM search_options ORDER BY id ASC");
         query->exec();
@@ -680,9 +746,9 @@ void PracticeWindow::initContextMenu()
             menuAnswer->addAction(actionSearchOption);
             menuBlank->addAction(actionSearchOption);
         }
-        mySQL.close();
+        db.close();
     } else {
-        QMessageBox::warning(this, "Warning", "Cannot open the databse:\n" + mySQL.lastError().text());
+        QMessageBox::warning(this, "Warning", "Cannot open the databse:\n" + db.lastError().text());
         QApplication::quit();
     }
 
@@ -803,17 +869,20 @@ void PracticeWindow::setWindowStyle()
 
 QString PracticeWindow::convertStringToFilename(QString name)
 {
-    QString output(name.normalized(QString::NormalizationForm_D));
-    output.replace(QRegularExpression("[^a-zA-Z,'.-() \\s]"), "_");
-    if (output.length() > 100)
-        output = output.mid(0, 45 + (output.length() % 7)) + "..." + output.mid(output.length() - 51 + (output.length() % 3));
+    QString output;
+    for (const auto c : name) {
+        if (c.isLetterOrNumber() || c == '.' || c == '_' || c == '-') {
+            output += c;
+        } else
+            output += '_';
+    }
     return output;
 }
 
 void PracticeWindow::handleTTS(bool isQuestion)
 {
     QString sanitizedFilepath, originalText, sanitizedFilename;
-    TTSDownloader* ttsDownloader = new TTSDownloader();
+    TTSDownloader *ttsDownloader = new TTSDownloader(this);
     bool isTTSEnabled = false;
 
     if (isQuestion) {
@@ -840,16 +909,21 @@ void PracticeWindow::handleTTS(bool isQuestion)
     if (isTTSEnabled) {
         QFileInfo check_file(sanitizedFilepath);
         if (check_file.exists() && check_file.isFile()) {
+            SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath);
             player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
             player->play();
         } else {
-            ttsDownloader->doDownload("http://dict.youdao.com/dictvoice?audio=" + originalText + "&amp;amp;le=eng%3C", sanitizedFilepath);
+            auto url = "http://dict.youdao.com/dictvoice?audio=" + originalText
+                       + "&amp;amp;le=eng%3C";
+            SPDLOG_INFO("Start downloading TTS file from {} to {}", url, sanitizedFilepath);
+            ttsDownloader->doDownload(url, sanitizedFilepath);
             // http, instead of https, is used here.
             // If https is used, the program would encounter a "TLS initialization failed" error on Windows. Not sure what would happen on Linux
         }
     }
 
-//    ttsDownloader->deleteLater(); Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
+    // ttsDownloader->deleteLater();
+    //Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
 }
 
 void PracticeWindow::on_actionResetTimer_triggered()
@@ -998,11 +1072,15 @@ void PracticeWindow::on_pushButton_Next_pressed()
 // Return value: If user would like to retry the same database operation
 bool PracticeWindow::handleDatabaseOperationError(QString operationName, QString dbPath, QString lastError)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::warning(this, "Mamsds QJLT - Database Operation Error", "Operation name: " + operationName + "\n"
-                                                              + "Database path: " + dbPath + "\n"
-                                                              + "Error message: " + lastError + "\n\n"
-                                                              + "Retry the operation?"
-                                                              , QMessageBox::No | QMessageBox::Yes, QMessageBox::Yes);
+    QMessageBox::StandardButton resBtn = QMessageBox::warning(this,
+                                                              "Qrammer - Database Operation Error",
+                                                              "Operation name: " + operationName
+                                                                  + "\n" + "Database path: "
+                                                                  + dbPath + "\n"
+                                                                  + "Error message: " + lastError
+                                                                  + "\n\n" + "Retry the operation?",
+                                                              QMessageBox::No | QMessageBox::Yes,
+                                                              QMessageBox::Yes);
     if (resBtn == QMessageBox::Yes)
         return true;
     else

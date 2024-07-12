@@ -1,8 +1,9 @@
 #include "window_overview.h"
-#include "ui_window_overview.h"
+#include "src/qrammer/ui_window_overview.h"
 #include "window_cram.h"
 
 #include <QRegularExpression>
+#include <spdlog/spdlog.h>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -13,10 +14,10 @@ MainWindow::MainWindow(QWidget *parent) :
     initPlatformSpecificSettings();
     if (!initCategoryStructure()) return;
      //To make sure that the program quits if database cannot be opened
-    initUI();
+    if (!initUI())
+        return;
     initStatistics();
     initSettings();
-
 }
 
 MainWindow::~MainWindow()
@@ -45,30 +46,49 @@ void MainWindow::closeEvent (QCloseEvent *event)
 
 bool MainWindow::initCategoryStructure()
 {
-    if (mySQL.open()) {
-        QSqlQuery *query = new QSqlQuery(mySQL);
-        query->prepare("SELECT DISTINCT(category) FROM knowledge_units WHERE is_shelved = 0 ORDER BY category DESC");
-        if (!query->exec()) {
-            QMessageBox::critical(this, "QJLT - Fatal Error", "Cannot read the databse [" + mySQL.databaseName()
-                                  + "]. The database could be locked, empty or corrupt.\nInteral error info:\n" + query->lastError().text());
-            return false;
-        }
+    if (!db.open()) {
+        ui->pushButton_Start->setEnabled(false);
+        auto errMsg = "Cannot open the databse file [" + db.databaseName()
+                      + "]\nInternal error message:\n" + db.lastError().text();
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
+        // QApplication::quit();
+        return false;
+    }
+
+    QSqlQuery query = QSqlQuery(db);
+    query.prepare(
+        R"(
+SELECT DISTINCT(category)
+FROM knowledge_units
+WHERE is_shelved = 0
+ORDER BY category DESC
+)");
+    if (!query.exec()) {
+        QMessageBox::critical(
+            this,
+            "Qrammer - Fatal Error",
+            "Cannot read the databse [" + db.databaseName()
+                + "]. The database could be locked, empty or corrupt.\nInteral error info:\n"
+                + query.lastError().text());
+        return false;
+    }
         allCats = new QList<CategoryMetaData*>;
-        QSqlQuery *query1 = new QSqlQuery(mySQL);
-        while (query->next()) {
+        QSqlQuery query1 = QSqlQuery(db);
+        while (query.next()) {
             CategoryMetaData *t = new CategoryMetaData();
-            t->name = query->value(0).toString();
+            t->name = query.value(0).toString();
             t->number = 0;
 
-            query1->prepare("SELECT tts_option FROM category_info WHERE name = :name");
-            query1->bindValue(":name", t->name);
-            query1->exec();
+            query1.prepare("SELECT tts_option FROM category_info WHERE name = :name");
+            query1.bindValue(":name", t->name);
+            query1.exec();
 
-            if (query1->next()) {
-                if (query1->value(0).toString() == "question")
+            if (query1.next()) {
+                if (query1.value(0).toString() == "question")
                     t->ttsOption = 1;
-                else if (query1->value(0).toString() == "answer")
-                     t->ttsOption = 2;
+                else if (query1.value(0).toString() == "answer")
+                    t->ttsOption = 2;
                 else
                      t->ttsOption = 0;
             } else {
@@ -83,32 +103,50 @@ bool MainWindow::initCategoryStructure()
             );
         }
         return true;
-    } else {
-        QMessageBox::critical(this, "QJLT - Fatal Error", "Cannot open the databse file [" + mySQL.databaseName() + "]\nInternal error message:\n"
-                              + mySQL.lastError().text());
-        QApplication::quit();       // This command is in fact  useless.
-        ui->pushButton_Start->setEnabled(false);
-        return false;
-    }
 }
 
 bool MainWindow::initUI()
 {
-    if (mySQL.open()) {
-        QSqlQueryModel *model = new QSqlQueryModel();
-        QSqlQuery *query = new QSqlQuery(mySQL);
+    if (!db.open()) {
+        QMessageBox::critical(this,
+                              "Mamsds Qrammer -Fatal Error",
+                              "Cannot open the databse [" + db.databaseName()
+                                  + "].\n\nInternal error message:\n" + db.lastError().text());
+        return false;
+    }
 
-        if (QGuiApplication::primaryScreen()->geometry().width() >= 1080)
-            query->prepare(QString("SELECT id, SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question', SUBSTR(REPLACE(REPLACE(answer, CHAR(10), ''), CHAR(9), ''), 0, 40) || '...' AS 'Answer', ")
-                       + QString("ROUND(previous_score, 1) AS 'Score' , STRFTIME('%Y-%m-%d', insert_time) AS 'Insert', STRFTIME('%Y-%m-%d', first_practice_time) AS 'First Practice', ")
-                       + QString("last_practice_time AS 'Last Practice', STRFTIME('%Y-%m-%d', deadline) AS 'Deadline' FROM knowledge_units WHERE is_shelved = 0 ORDER BY last_practice_time DESC"));
-        else {
-            query->prepare(QString("SELECT SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question', ")
-                       + QString("STRFTIME('%m-%d %H:%M', last_practice_time) AS 'Last Practice' FROM knowledge_units WHERE is_shelved = 0 ORDER BY last_practice_time DESC"));
-        }
+    QSqlQueryModel *model = new QSqlQueryModel();
+    QSqlQuery *query = new QSqlQuery(db);
+
+    if (QGuiApplication::primaryScreen()->geometry().width() >= 1080) {
+        auto stmt = R"***(
+SELECT
+    id,
+    SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question', SUBSTR(REPLACE(REPLACE(answer, CHAR(10), ''), CHAR(9), ''), 0, 40) || '...' AS 'Answer',
+    ROUND(previous_score, 1) AS 'Score' ,
+    STRFTIME('%Y-%m-%d', insert_time) AS 'Insert',
+    STRFTIME('%Y-%m-%d', first_practice_time) AS 'First Practice',
+    last_practice_time AS 'Last Practice',
+    STRFTIME('%Y-%m-%d', deadline) AS 'Deadline'
+FROM knowledge_units
+WHERE is_shelved = 0
+ORDER BY last_practice_time DESC
+)***";
+        query->prepare(stmt);
+    } else {
+        auto stmt = R"***(
+SELECT
+    SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question',
+    STRFTIME('%m-%d %H:%M', last_practice_time) AS 'Last Practice'
+FROM knowledge_units
+WHERE is_shelved = 0
+ORDER BY last_practice_time DESC
+)***";
+        query->prepare(stmt);
+    }
         query->exec();
 
-        model->setQuery(*query);
+        model->setQuery(std::move(*query));
         ui->tableView_KU->setModel(model);
         ui->tableView_KU->setSortingEnabled(true);
         ui->tableView_KU->horizontalHeader()->setSectionsClickable(1);
@@ -133,25 +171,19 @@ bool MainWindow::initUI()
         ui->tableView_KU->setModel(m);
         ui->tableView_KU->setSortingEnabled(true);
 
-    } else {
-        QMessageBox::critical(this, "Mamsds QJLT - Fatal Error", "Cannot open the databse [" + mySQL.databaseName() + "].\n\nInternal error message:\n" + mySQL.lastError().text());
-        return false;
-    }
+        ui->tableView_KU->grabGesture(Qt::SwipeGesture);
 
-    ui->tableView_KU->grabGesture(Qt::SwipeGesture);
-
-    ui->lineEdit_NumberstoLearn->setFocus();
-    return true;
+        ui->lineEdit_NumberstoLearn->setFocus();
+        return true;
 }
 
 void MainWindow::initSettings()
 {
+    QSettings settings("AKStudio", "Qrammer");
 
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
-
-    ui->lineEdit_FontSize->setValidator( new QIntValidator(0, 50, this));
-    ui->lineEdit_NKI->setValidator( new QIntValidator(0, 99, this));
-    ui->lineEdit_ClientName->setText(settings.value("ClientName", "QJLT-Notset").toString());
+    ui->lineEdit_FontSize->setValidator(new QIntValidator(0, 50, this));
+    ui->lineEdit_NKI->setValidator(new QIntValidator(0, 99, this));
+    ui->lineEdit_ClientName->setText(settings.value("ClientName", "Qrammer-Notset").toString());
     ui->lineEdit_FontSize->setText(QString::number(settings.value("FontSize", 10).toInt()));
     ui->lineEdit_NKI->setText(QString::number(settings.value("NKI", 50).toInt()));
     ui->lineEdit_IntervalNum->setText(settings.value("Interval", "0, 0").toString());
@@ -162,7 +194,7 @@ void MainWindow::initStatistics()
 {
     QMap<QString, int>::iterator i;
     for (int i = 0; i < allCats->count(); i++) {
-        allCats->at(i)->snapshot = new Snapshot(mySQL, allCats->at(i)->name);
+        allCats->at(i)->snapshot = new Snapshot(db, allCats->at(i)->name);
         ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
     }
 
@@ -180,7 +212,8 @@ void MainWindow::on_pushButton_Start_clicked()
 
     for (int i = 0; i < allCats->count(); i++)
         qDebug() << allCats->at(i)->name + ": " + QString::number(allCats->at(i)->ttsOption);
-    QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    //static QRegularExpression re("SEARCHING...", QRegularExpression::CaseInsensitiveOption);
+    static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_NumberstoLearn->text().split(rx);
 
     int t = 0;
@@ -195,7 +228,7 @@ void MainWindow::on_pushButton_Start_clicked()
         return;
     }
 
-    PracticeWindow *pW = new PracticeWindow(nullptr, mySQL);
+    PracticeWindow *pW = new PracticeWindow(nullptr, db);
 
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
@@ -204,7 +237,7 @@ void MainWindow::on_pushButton_Start_clicked()
         t2 = tt.at(1).toInt();
     }
 
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
 
     pW->init(allCats, settings.value("NKI", 50).toInt(), t1, t2, settings.value("WindowStyle", "1111").toInt());
  //   pW->showMaximized();
@@ -217,8 +250,9 @@ void MainWindow::on_pushButton_Start_clicked()
 
 void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 {
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
-    if (ui->lineEdit_WindowStyle->text() == "1000" || ui->lineEdit_WindowStyle->text() == "0001" || ui->lineEdit_WindowStyle->text() == "1111") {
+    QSettings settings("AKStudio", "Qrammer");
+    if (ui->lineEdit_WindowStyle->text() == "1000" || ui->lineEdit_WindowStyle->text() == "0001"
+        || ui->lineEdit_WindowStyle->text() == "1111") {
         settings.setValue("WindowStyle", ui->lineEdit_WindowStyle->text());
         initSettings();
     }
@@ -226,14 +260,14 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 
 void MainWindow::on_lineEdit_NKI_textChanged(const QString &)
 {
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("NKI", ui->lineEdit_NKI->text());
     initSettings();
 }
 
 void MainWindow::on_lineEdit_FontSize_textChanged(const QString &)
 {
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("FontSize", ui->lineEdit_FontSize->text());
     initSettings();
 }
@@ -245,9 +279,9 @@ void MainWindow::on_pushButton_Quit_clicked()
 
 void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 {
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
 
-    QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_IntervalNum->text().split(rx);
     if (number.count() == 2) {
         settings.setValue("Interval", QString::number(number.at(0).toInt()) + ", " + QString::number(number.at(1).toInt()));
@@ -258,7 +292,7 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 void MainWindow::initPlatformSpecificSettings()
 {    
     if (QGuiApplication::platformName() == "android") {
-        mySQL.setDatabaseName("/sdcard/jlt/db/database.sqlite");
+        db.setDatabaseName("/sdcard/qrammer/db/database.sqlite");
 
         ui->label_NKI->setVisible(false);
         ui->lineEdit_NKI->setVisible(false);
@@ -271,8 +305,8 @@ void MainWindow::initPlatformSpecificSettings()
 
         ui->groupBox_DBContent->setVisible(false);
 
-        QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
-   //     settings.setValue("ClientType", "QJLT-Android");
+        QSettings settings("AKStudio", "Qrammer");
+        //     settings.setValue("ClientType", "QJLT-Android");
         settings.setValue("FontSize", 12);
         settings.setValue("Interval", "0,0");
         settings.setValue("NKI", 10);
@@ -282,37 +316,15 @@ void MainWindow::initPlatformSpecificSettings()
     } else {
         QDir tmpDir = QApplication::applicationFilePath();
         tmpDir.cdUp();
-
-
-  /*      if (QGuiApplication::platformName() == "windows")
-        {
-            // It is conformed that:
-            // As at 2019-03-29, wenquanyi series don't work well on Windows.
-            QFontDatabase::addApplicationFont(tmpDir.path() +  "/NotoSansMonoCJKsc-Regular.otf");
-            QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansCJKsc-Medium.otf");
-
-            QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
-
-            QFont font = QFont();
-            font.setFamily("Noto Sans Mono CJK SC Regular");
-            font.setPixelSize(15);
-     //       font.setStyleHint(QFont::Monospace);
-         //   font.setLetterSpacing(QFont::PercentageSpacing, 102);
-            QApplication::setFont(font);
-    //        QString styleSheet = QString("font-size:%1px;").arg(font.pixelSize());
-      //      this->setStyleSheet(styleSheet);
-
-        }*/
-
         tmpDir.cdUp();
-        mySQL.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
+        db.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
     }
 }
 
 
 void MainWindow::on_lineEdit_ClientName_textChanged()
 {
-    QSettings settings("MamsdsStudio", "MamsdsQJointLearningTools");
+    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("ClientName", ui->lineEdit_ClientName->text());
     initSettings();
 }

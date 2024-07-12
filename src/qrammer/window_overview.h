@@ -66,7 +66,7 @@ private:
 
 private:
     Ui::MainWindow *ui;
-    QSqlDatabase mySQL = QSqlDatabase::addDatabase("QSQLITE");
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     QList<CategoryMetaData*> *allCats;
     };
 

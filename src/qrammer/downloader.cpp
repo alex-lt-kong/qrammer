@@ -22,13 +22,12 @@ void TTSDownloader::replyFinished(QNetworkReply *reply)
     if(reply->error()) {
         qDebug() << "replyFinished Error: " << reply->errorString();
     } else {
-        QFile *file = new QFile(fileName);
-        if(file->open(QFile::Append)) {
-            file->write(reply->readAll());
-            file->flush();
-            file->close();
+        QFile file = QFile(fileName);
+        if (file.open(QFile::Append)) {
+            file.write(reply->readAll());
+            file.flush();
+            file.close();
         }
-        delete file;
     }
 
     reply->deleteLater();

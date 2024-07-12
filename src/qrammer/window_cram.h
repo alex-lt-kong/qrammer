@@ -94,7 +94,7 @@ private:
     QString cku_Category;
     int cku_SecSpent;
 
-    QSqlDatabase mySQL;
+    QSqlDatabase db;
     QList<CategoryMetaData*> *availableCategory;
     QHash<QString, QString> *SearchOptions;
 
