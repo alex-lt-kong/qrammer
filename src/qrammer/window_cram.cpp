@@ -451,6 +451,7 @@ int CrammingWindow::determineCategoryforNewKU()
 void CrammingWindow::loadNewKU(int recursion_depth)
 {
     currCatIndex = determineCategoryforNewKU();
+    auto currCat = availableCategory->at(currCatIndex)->name;
     QString msg
         = QString("Loading new knowledge unit (recursion_depth: %1), remaining KUs by category: ")
               .arg(recursion_depth);
@@ -466,7 +467,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QMessageBox::critical(this, "Qrammer - Critical", errMsg);
         QApplication::quit();
     }
-    QSqlQuery *query = new QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(db);
     auto stmt = R"***(
 SELECT COUNT(*)
 FROM knowledge_units
@@ -475,45 +476,48 @@ WHERE
     deadline <= DATETIME('now', 'localtime') AND
     is_shelved = 0
 )***";
-    query->prepare(stmt);
-    query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+    query.prepare(stmt);
+    query.bindValue(":category", currCat);
 
-    int dueNum = 0;
-    if (!query->exec()) {
-        auto errMsg = QString("Error executing query: %1").arg(query->lastError().text());
+    int dueNumByCat = 0;
+    if (!query.exec()) {
+        auto errMsg = QString("Error executing query: %1").arg(query.lastError().text());
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Critical", errMsg);
         return;
-    } else if (query->next()) {
-        dueNum = query->value(0).toInt();
+    } else if (query.next()) {
+        dueNumByCat = query.value(0).toInt();
+        SPDLOG_INFO("dueNum of category {}: {}", currCat.toStdString(), dueNumByCat);
     } else {
-        auto errMsg = QString("Error querying dueNum").arg(query->lastError().text());
+        auto errMsg = QString("Error querying dueNum of category %1: %2")
+                          .arg(currCat)
+                          .arg(query.lastError().text());
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Critical", errMsg);
         return;
     }
 
-    query->prepare(R"***(
+    query.prepare(R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE category = :category AND is_shelved = 0
 )***");
-    query->bindValue(":category", availableCategory->at(currCatIndex)->name);
-    query->exec();
-    query->next();
-    int TotalNum = query->value(0).toInt();
+    query.bindValue(":category", currCat);
+    query.exec();
+    query.next();
+    int TotalNum = query.value(0).toInt();
 
-    double urgencyIndex = 1
-                          - (qPow(static_cast<double>(TotalNum - dueNum) / TotalNum,
-                                  0.0275 * TotalNum + dueNum)
-                             * 0.65);
-    SPDLOG_INFO("urgencyIndex = {}", urgencyIndex);
+    double urgencyCoef = 1
+                         - (qPow(static_cast<double>(TotalNum - dueNumByCat) / TotalNum,
+                                 0.0275 * TotalNum + dueNumByCat)
+                            * 0.65);
+    SPDLOG_INFO("urgencyCoef = {}", urgencyCoef);
     QString columns
         = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, "
           "first_practice_time, last_practice_time, deadline, client_name, category, time_used";
-    SPDLOG_INFO("[Random number compared to urgencyIndex] (double)qrand() / RAND_MAX: {}",
-                static_cast<double>(ranGen.generateDouble()) / RAND_MAX);
-    if (static_cast<double>(ranGen.generate()) / RAND_MAX < urgencyIndex) {
+    double r = ranGen.generateDouble();
+    SPDLOG_INFO("A random number in [0, 1): {}", r);
+    if (r < urgencyCoef) {
         SPDLOG_INFO("SELECTing an urgent unit");
         auto stmt = QString(R"***(
 SELECT %1
@@ -526,8 +530,8 @@ ORDER BY RANDOM()
 LIMIT 1
 )***")
                         .arg(columns);
-        query->prepare(stmt);
-        query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+        query.prepare(stmt);
+        query.bindValue(":category", availableCategory->at(currCatIndex)->name);
     } else {
         if (ranGen.generate() % 100 <= NKI) {
             SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
@@ -542,8 +546,8 @@ ORDER BY RANDOM()
 LIMIT 1
 )***")
                             .arg(columns);
-            query->prepare(stmt);
-            query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+            query.prepare(stmt);
+            query.bindValue(":category", availableCategory->at(currCatIndex)->name);
         } else {
             SPDLOG_INFO("Randomly SELECTing a unit");
             auto stmt = QString(R"***(
@@ -567,39 +571,48 @@ FROM
 ORDER BY RANDOM() LIMIT 1";
 )***")
                             .arg(columns);
-            query->prepare(stmt);
-            query->bindValue(":category", availableCategory->at(currCatIndex)->name);
+            query.prepare(stmt);
+            query.bindValue(":category", availableCategory->at(currCatIndex)->name);
         }
     }
 
-    if (query->exec() && query->first()) {
-        int i = 0;
-        cku_ID = query->value(i++).toInt();
-        cku_Question = query->value(i++).toString();
-        cku_Answer = query->value(i++).toString();
-        cku_PassingScore = query->value(i++).toDouble();
-        cku_PreviousScore = query->value(i++).toDouble();
-        cku_TimesPracticed = query->value(i++).toInt();
-        cku_InsertTime = query->value(i++).toDateTime();
-        cku_FirstPracticeTime = query->value(i++).toDateTime();
-        cku_LastPracticeTime = query->value(i++).toDateTime();
-        cku_Deadline = query->value(i++).toDateTime();
-        cku_ClientName = query->value(i++).toString();
-        cku_Category = query->value(i++).toString();
-        cku_SecSpent = query->value(i++).toInt();
-        query->finish();
-    } else if (recursion_depth < 100) {
-        loadNewKU(++recursion_depth);
-    } else
-        QMessageBox::warning(this,
-                             "Qrammer - Warning",
-                             "Cannot load a new Knowledge Unit!\n\nThis error is very rare, "
-                             "report it to mamsds IMMEDIATELY if you see it");
+    if (query.exec()) {
+        if (query.first()) {
+            int i = 0;
+            cku_ID = query.value(i++).toInt();
+            cku_Question = query.value(i++).toString();
+            cku_Answer = query.value(i++).toString();
+            cku_PassingScore = query.value(i++).toDouble();
+            cku_PreviousScore = query.value(i++).toDouble();
+            cku_TimesPracticed = query.value(i++).toInt();
+            cku_InsertTime = query.value(i++).toDateTime();
+            cku_FirstPracticeTime = query.value(i++).toDateTime();
+            cku_LastPracticeTime = query.value(i++).toDateTime();
+            cku_Deadline = query.value(i++).toDateTime();
+            cku_ClientName = query.value(i++).toString();
+            cku_Category = query.value(i++).toString();
+            cku_SecSpent = query.value(i++).toInt();
+            query.finish();
+        } else if (recursion_depth < 100) {
+            loadNewKU(++recursion_depth);
+        } else {
+            auto errMsg = "Cannot load a new Knowledge Unit and max_recursion_depth reached";
+            SPDLOG_ERROR(errMsg);
+            QMessageBox::critical(this, "Qrammer - Critical", errMsg);
+            return;
+        }
+    } else {
+        auto errMsg = QString("Query execution failed: %1").arg(query.lastError().text());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
+        return;
+    }
     ui->textEdit_Question->setPlainText(cku_Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
     adaptTexteditLineSpacing(ui->textEdit_Draft);
     //    ui->plainTextEdit_Question->setPlainText(cku_Question);
 
+    // Problematic, some branches could leave db un-close()ed;
     db.close();
 }
 
