@@ -66,8 +66,7 @@ private:
 
 private:
     Ui::MainWindow *ui;
-    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
     QList<CategoryMetaData*> *allCats;
-    };
+};
 
 #endif // WINDOW_OVERVIEW_H

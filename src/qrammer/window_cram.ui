@@ -14,8 +14,8 @@
    <string>Qrammer - Cramming in progress</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="res.qrc">
-    <normaloff>:/Main.ico</normaloff>:/Main.ico</iconset>
+   <iconset>
+    <normaloff>../../resources/qrammer.ico</normaloff>../../resources/qrammer.ico</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0,0,0,0">

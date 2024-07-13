@@ -17,12 +17,11 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Qramming - overview</string>
+   <string>Qrammer - Overview</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="res.qrc">
-    <normaloff>:/Main.ico</normaloff>
-    <normalon>:/Main.ico</normalon>:/Main.ico</iconset>
+   <iconset>
+    <normaloff>../../resources/qrammer.ico</normaloff>../../resources/qrammer.ico</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QHBoxLayout" name="horizontalLayout" stretch="84,16">
@@ -344,8 +343,6 @@
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources>
-  <include location="res.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

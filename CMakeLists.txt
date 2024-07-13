@@ -18,6 +18,9 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
         src/qrammer/msgbox.cpp     src/qrammer/msgbox.h     src/qrammer/msgbox.ui
         src/qrammer/window_cram.cpp     src/qrammer/window_cram.h     src/qrammer/window_cram.ui
         src/qrammer/snapshot.cpp     src/qrammer/snapshot.h
+        resources/qrammer.ico resources/qrammer-db-tool.ico
+        src/qrammer/knowledge_unit.h
+        src/qrammer/global_variables.h src/qrammer/global_variables.cpp
 )
 target_compile_definitions(qrammer PRIVATE
     QT_DEPRECATED_WARNINGS
@@ -31,22 +34,6 @@ target_link_libraries(qrammer PRIVATE
     Qt::Sql
     Qt::Widgets
     spdlog::spdlog
-)
-
-
-# Resources:
-set(res_resource_files
-    "src/qrammer/Main.ico"
-)
-
-qt_add_resources(qrammer "res"
-    PREFIX
-        "/"
-    FILES
-        ${res_resource_files}
-)
-set(res1_resource_files
-
 )
 
 qt_add_resources(qrammer "res1"

@@ -1,6 +1,7 @@
 #ifndef WINDOW_CRAM_H
 #define WINDOW_CRAM_H
 
+#include "knowledge_unit.h"
 #include "window_overview.h"
 
 #include <QDateTime>
@@ -27,7 +28,7 @@ class CrammingWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit CrammingWindow(QWidget *parent = 0, QSqlDatabase mySQL = QSqlDatabase::addDatabase("QSQLITE"));
+    explicit CrammingWindow(QWidget *parent = nullptr);
     ~CrammingWindow();
     void init(QList<CategoryMetaData*> *availableCategory, int NKI, int nnterval, int number, int windowStyle);
     void initNextKU();
@@ -79,22 +80,9 @@ protected:
 
 private:
     Ui::PracticeWindow *ui;
-    //0ID, 1Question, 2Answer, 3PassingScore, 4PreviousScore, 5TimesPracticed, 6InsertTime, 7FirstPracticeTime, 8LastPracticeTime, 9Deadline, 10ClientType, 11Maintype"
-    int cku_ID;
-    QString cku_Question;
-    QString cku_Answer;
-    double cku_PassingScore;
-    double cku_PreviousScore = 0; //This needs to be set to zero or on Android platform there will be a flash of incorrect new score (such as .1617e+242)due to the uninitialized cku_PreviousScore.
-    int cku_TimesPracticed;
-    QDateTime cku_InsertTime;
-    QDateTime cku_FirstPracticeTime;
-    QDateTime cku_LastPracticeTime;
-    QDateTime cku_Deadline;
-    QString cku_ClientName;
-    QString cku_Category;
-    int cku_SecSpent;
+    // cku: current knowledge unit
+    struct knowledge_unit cku;
 
-    QSqlDatabase db;
     QList<CategoryMetaData*> *availableCategory;
     QHash<QString, QString> *SearchOptions;
 
@@ -118,7 +106,11 @@ private:
     void initUI();
     void initPlatformSpecificSettings();
     void loadNewKU(int depth);
-    bool finalizeLastKU();
+    /**
+     * @brief
+     * @return whether the program should start loading next KU
+    */
+    bool finalizeTheKUJustBeingCrammed();
     double calculateNewPreviousScore(double newScore);
     void adaptTexteditHeight(QTextEdit *plaintextedit);
     void adaptTexteditLineSpacing(QTextEdit *textedit);

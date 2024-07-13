@@ -1,4 +1,5 @@
 #include "window_overview.h"
+#include "global_variables.h"
 #include "src/qrammer/ui_window_overview.h"
 #include "window_cram.h"
 
@@ -48,6 +49,8 @@ void MainWindow::closeEvent (QCloseEvent *event)
 
 bool MainWindow::initCategoryStructure()
 {
+    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     if (!db.open()) {
         ui->pushButton_Start->setEnabled(false);
         auto errMsg = "Cannot open the databse file [" + db.databaseName()
@@ -109,6 +112,8 @@ ORDER BY category DESC
 
 bool MainWindow::initUI()
 {
+    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     if (!db.open()) {
         QMessageBox::critical(this,
                               "Mamsds Qrammer -Fatal Error",
@@ -196,7 +201,7 @@ void MainWindow::initStatistics()
 {
     QMap<QString, int>::iterator i;
     for (int i = 0; i < allCats->count(); i++) {
-        allCats->at(i)->snapshot = new Snapshot(db, allCats->at(i)->name);
+        allCats->at(i)->snapshot = new Snapshot(allCats->at(i)->name);
         ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
     }
 
@@ -230,7 +235,7 @@ void MainWindow::on_pushButton_Start_clicked()
         return;
     }
 
-    CrammingWindow *pW = new CrammingWindow(nullptr, db);
+    CrammingWindow *pW = new CrammingWindow(nullptr);
 
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
@@ -242,7 +247,6 @@ void MainWindow::on_pushButton_Start_clicked()
     QSettings settings("AKStudio", "Qrammer");
 
     pW->init(allCats, settings.value("NKI", 50).toInt(), t1, t2, settings.value("WindowStyle", "1111").toInt());
- //   pW->showMaximized();
     pW->show();
     pW->initNextKU();
 
@@ -294,7 +298,7 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 void MainWindow::initPlatformSpecificSettings()
 {    
     if (QGuiApplication::platformName() == "android") {
-        db.setDatabaseName("/sdcard/qrammer/db/database.sqlite");
+        databaseName = "/sdcard/qrammer/db/database.sqlite";
 
         ui->label_NKI->setVisible(false);
         ui->lineEdit_NKI->setVisible(false);
@@ -319,7 +323,7 @@ void MainWindow::initPlatformSpecificSettings()
         QDir tmpDir = QApplication::applicationFilePath();
         tmpDir.cdUp();
         tmpDir.cdUp();
-        db.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
+        databaseName = tmpDir.path() + "/db/database.sqlite";
     }
 }
 

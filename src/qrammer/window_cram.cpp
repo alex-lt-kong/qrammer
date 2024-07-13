@@ -2,6 +2,7 @@
 #include "bmbox.h"
 #include "downloader.h"
 #include "msgbox.h"
+#include "src/qrammer/global_variables.h"
 #include "ui_window_cram.h"
 
 #include <QAudioOutput>
@@ -9,7 +10,7 @@
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
 
-CrammingWindow::CrammingWindow(QWidget *parent, QSqlDatabase mySQL)
+CrammingWindow::CrammingWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::PracticeWindow)
 {
@@ -17,8 +18,6 @@ CrammingWindow::CrammingWindow(QWidget *parent, QSqlDatabase mySQL)
 
     initTrayMenu();
     initPlatformSpecificSettings();
-
-    this->db = mySQL;
 
     player = new QMediaPlayer(this);
     // player->setVolume(50);
@@ -37,9 +36,7 @@ CrammingWindow::CrammingWindow(QWidget *parent, QSqlDatabase mySQL)
     QSettings settings("AKStudio", "Qrammer");
     clientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
 
-    //    initNextKU();
-
-    //    setWindowStyle();
+    cku.PreviousScore = 0;
 }
 
 CrammingWindow::~CrammingWindow()
@@ -154,7 +151,8 @@ void CrammingWindow::on_pushButton_Next_clicked()
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 
-    if (!finalizeLastKU()) return;
+    if (!finalizeTheKUJustBeingCrammed())
+        return;
 
     if (interval > 0 && (totalKU - remainingKUsToCram) > 0
         && (totalKU - remainingKUsToCram) % number == 0) {
@@ -178,10 +176,11 @@ void CrammingWindow::tmrInterval()
         trayIcon->setToolTip("BM activated");
     } else {
         secDelayed++;
-        trayIcon->setToolTip("Mamsds QJoint Learning Tool\nProgress: "
-                             + QString::number(totalKU - remainingKUsToCram) + "/"
-                             + QString::number(totalKU)
-                             + "\nWait: " + QString::number(interval * 60 - secDelayed) + " sec");
+        auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: % 3 sec")
+                           .arg(QString::number(totalKU - remainingKUsToCram),
+                                QString::number(totalKU),
+                                QString::number(interval * 60 - secDelayed));
+        trayIcon->setToolTip(toolTip);
     }
 
     if (secDelayed < interval * 60)
@@ -190,7 +189,7 @@ void CrammingWindow::tmrInterval()
     timerDelay->stop();
     secDelayed = 0;
 
-    msgBox *myMsg = new msgBox();       // This is needed since a timeout before selection is required.
+    msgBox *myMsg = new msgBox(); // This is needed since a timeout before selection is required.
     myMsg->setWindowModality(Qt::ApplicationModal);
     myMsg->exec();
 
@@ -207,10 +206,7 @@ void CrammingWindow::on_pushButton_Check_clicked()
     if (!ui->pushButton_Check->isEnabled())
         return;
 
-    ui->textEdit_Answer->setPlainText(cku_Answer);
-   // ui->textEdit_Answer->moveCursor(QTextCursor::Start);
-  //  ui->textEdit_Answer->ensureCursorVisible();
-
+    ui->textEdit_Answer->setPlainText(cku.Answer);
     adaptTexteditLineSpacing(ui->textEdit_Answer);
     ui->pushButton_Check->setEnabled(false);
     ui->comboBox_Score->setEnabled(true);
@@ -220,8 +216,7 @@ void CrammingWindow::on_pushButton_Check_clicked()
     handleTTS(false);
 }
 
-// The return value means "if it is okay to start the next ku"
-bool CrammingWindow::finalizeLastKU()
+bool CrammingWindow::finalizeTheKUJustBeingCrammed()
 {
     if (availableCategory->at(currCatIndex)->number <= 0) {
         QMessageBox::warning(this,
@@ -231,9 +226,9 @@ bool CrammingWindow::finalizeLastKU()
     }
 
     double previousScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
-    int timesPracticed = cku_TimesPracticed + 1;
+    int timesPracticed = cku.TimesPracticed + 1;
 
-    bool hasDeadline = (previousScore - cku_PassingScore < 0);
+    bool hasDeadline = (previousScore - cku.PassingScore < 0);
     double addedDays = 0.0;
 
     if (hasDeadline) {
@@ -243,57 +238,80 @@ bool CrammingWindow::finalizeLastKU()
         addedDays = addedDays > 0 ? addedDays : 0;
     }
 
+    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     while (true) {
-        if (!db.open()) {
-            if (promptUserToRetryDBError("open database",
-                                         db.databaseName(),
-                                         db.lastError().databaseText() + "\n"
-                                             + db.lastError().driverText()))
+        if (!db.isOpen() && !db.open()) {
+            if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text()))
                 continue;
             else
                 break;
         }
 
-        QSqlQuery *query = new QSqlQuery(db);
-        query->prepare(QString("UPDATE knowledge_units SET last_practice_time = DATETIME('Now', 'localtime'), previous_score = :previous_score, question = :question, answer = :answer, times_practiced = :times_practiced, ") +
-                       "passing_score = :passing_score, " + "deadline = " + (hasDeadline ? ("DATETIME('Now', 'localtime', '" + QString::number(addedDays) + " day')") : "null") + ", " +
-                       "client_name = :client_name, time_used = time_used + :time_used WHERE id = :id");
-        query->bindValue(":previous_score", previousScore);
-        query->bindValue(":question", ui->textEdit_Question->toPlainText());
-        query->bindValue(":answer", ui->textEdit_Answer->toPlainText());
-        query->bindValue(":times_practiced", timesPracticed);
-        query->bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-        query->bindValue(":client_name", clientName);
-        query->bindValue(":time_used", (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300) ? 300 : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
-        query->bindValue(":id", cku_ID);
-
-        if (!query->exec()){
-            if (promptUserToRetryDBError("open database",
+        QSqlQuery query = QSqlQuery(db);
+        auto stmt = QString(R"**(
+UPDATE knowledge_units
+SET
+    last_practice_time = DATETIME('Now', 'localtime'),
+    previous_score = :previous_score,
+    question = :question,
+    answer = :answer,
+    times_practiced = :times_practiced,
+    passing_score = :passing_score,
+    deadline = %1,
+    client_name = :client_name,
+    time_used = time_used + :time_used
+WHERE id = :id
+)**")
+                        .arg(hasDeadline ? ("DATETIME('Now', 'localtime', '"
+                                            + QString::number(addedDays) + " day')")
+                                         : "null");
+        if (!query.prepare(stmt)) {
+            if (promptUserToRetryDBError(QString("query->prepare(%1)").arg(stmt),
                                          db.databaseName(),
-                                         query->lastError().databaseText() + "\n"
-                                             + query->lastError().driverText()))
+                                         query.lastError().text()))
+                continue;
+            else
+                break;
+        }
+        query.bindValue(":previous_score", previousScore);
+        query.bindValue(":question", ui->textEdit_Question->toPlainText());
+        query.bindValue(":answer", ui->textEdit_Answer->toPlainText());
+        query.bindValue(":times_practiced", timesPracticed);
+        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
+        query.bindValue(":client_name", clientName);
+        query.bindValue(":time_used",
+                        (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300)
+                            ? 300
+                            : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
+        query.bindValue(":id", cku.ID);
+
+        if (!query.exec()) {
+            if (promptUserToRetryDBError(QString("query.exec() the following statement: 1%")
+                                             .arg(stmt),
+                                         db.databaseName(),
+                                         query.lastError().text()))
                 continue;
             else break; // Need to consider whether this break is needed.
         }
 
         if (timesPracticed <= 1) {
-            query->prepare("UPDATE knowledge_units SET first_practice_time = DATETIME('Now', 'localtime') WHERE id = :id");
-            query->bindValue(":id", cku_ID);
-            if (!query->exec()){
+            query.prepare("UPDATE knowledge_units SET first_practice_time = DATETIME('Now', "
+                          "'localtime') WHERE id = :id");
+            query.bindValue(":id", cku.ID);
+            if (!query.exec()) {
                 if (promptUserToRetryDBError("open database",
                                              db.databaseName(),
-                                             query->lastError().databaseText() + "\n"
-                                                 + query->lastError().driverText()))
+                                             query.lastError().databaseText() + "\n"
+                                                 + query.lastError().driverText()))
                     continue;
                 else break; // Need to consider whether this break is needed.
             }
         }
-        query->finish();
-        db.close();
+        query.finish();
         break;
     }
 
-    // These two operations should only happen aftere the database is written is successfully.
     availableCategory->at(currCatIndex)->number--;
     remainingKUsToCram--;
 
@@ -338,51 +356,57 @@ void CrammingWindow::initNextKU()
     QString t, v1, v2;
     int i = 0;
 
-    if (!isAndroid) infos[i++] = "ID: " + QString::number(cku_ID);
+    if (!isAndroid)
+        infos[i++] = "ID: " + QString::number(cku.ID);
 
-    v1 = "Cat: " + cku_Category;
-    v2 = "Category: " + cku_Category;
+    v1 = "Cat: " + cku.Category;
+    v2 = "Category: " + cku.Category;
     (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
-    v1 = "Times: " + QString::number(cku_TimesPracticed);
-    v2 = "Times Practiced: " + QString::number(cku_TimesPracticed);
+    v1 = "Times: " + QString::number(cku.TimesPracticed);
+    v2 = "Times Practiced: " + QString::number(cku.TimesPracticed);
     (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
-    v1 =  "Score: " + QString::number(cku_PreviousScore, 'f', 0);
-    v2 = "Previous Score: " + QString::number(cku_PreviousScore, 'f', 1);
+    v1 = "Score: " + QString::number(cku.PreviousScore, 'f', 0);
+    v2 = "Previous Score: " + QString::number(cku.PreviousScore, 'f', 1);
     (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
 
-    v1 = "Insert: " + (cku_InsertTime.isNull() ? "nul" : cku_InsertTime.toString("yyyyMMdd"));
-    v2 = "Insert: " + (cku_InsertTime.isNull() ? "<null>" : cku_InsertTime.toString("yyyy-MM-dd"));
+    v1 = "Insert: " + (cku.InsertTime.isNull() ? "nul" : cku.InsertTime.toString("yyyyMMdd"));
+    v2 = "Insert: " + (cku.InsertTime.isNull() ? "<null>" : cku.InsertTime.toString("yyyy-MM-dd"));
     (fm.horizontalAdvance(v2) < winWidth / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
 
-    v1 = "First: " + (cku_FirstPracticeTime.isNull() ? "nul" : cku_FirstPracticeTime.toString("yyyyMMdd"));
-    v2 = "First Practice: " + (cku_FirstPracticeTime.isNull() ? "<null>" : cku_FirstPracticeTime.toString("yyyy-MM-dd"));
+    v1 = "First: "
+         + (cku.FirstPracticeTime.isNull() ? "nul" : cku.FirstPracticeTime.toString("yyyyMMdd"));
+    v2 = "First Practice: "
+         + (cku.FirstPracticeTime.isNull() ? "<null>"
+                                           : cku.FirstPracticeTime.toString("yyyy-MM-dd"));
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
         infos[i++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
         infos[i++] = v1;
 
-    v1 = "Min Used: " + QString::number(cku_SecSpent / 60);
-    v2 = "Minutes Used: " + QString::number(cku_SecSpent / 60);
+    v1 = "Min Used: " + QString::number(cku.SecSpent / 60);
+    v2 = "Minutes Used: " + QString::number(cku.SecSpent / 60);
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
         infos[i++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
         infos[i++] = v1;
 
-    v1 =  "Last: " + (cku_LastPracticeTime.isNull() ? "nul" : cku_LastPracticeTime.toString("yyyyMMdd"));
-    v2 =  "Last Practice: " + (cku_LastPracticeTime.isNull() ? "<null>" : cku_LastPracticeTime.toString("yyyy-MM-dd"));
+    v1 = "Last: "
+         + (cku.LastPracticeTime.isNull() ? "nul" : cku.LastPracticeTime.toString("yyyyMMdd"));
+    v2 = "Last Practice: "
+         + (cku.LastPracticeTime.isNull() ? "<null>" : cku.LastPracticeTime.toString("yyyy-MM-dd"));
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
         infos[i++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
         infos[i++] = v1;
 
-    v1 = "DDL: " + (cku_Deadline.isNull() ? "nul" : cku_Deadline.toString("yyyyMMdd"));
-    v2 = "Deadline: " + (cku_Deadline.isNull() ? "<null>" : cku_Deadline.toString("yyyy-MM-dd"));
+    v1 = "DDL: " + (cku.Deadline.isNull() ? "nul" : cku.Deadline.toString("yyyyMMdd"));
+    v2 = "Deadline: " + (cku.Deadline.isNull() ? "<null>" : cku.Deadline.toString("yyyy-MM-dd"));
     (fm.horizontalAdvance(v2) < winWidth / 9.0) ? infos[i++] = v2 : infos[i++] = v1;
 
-    v1 = "Client: " + (cku_ClientName.length() == 0 ? "nul" : cku_ClientName);
-    v2 = "Client Name: " + (cku_ClientName.length() == 0 ? "<null>" : cku_ClientName);
+    v1 = "Client: " + (cku.ClientName.length() == 0 ? "nul" : cku.ClientName);
+    v2 = "Client Name: " + (cku.ClientName.length() == 0 ? "<null>" : cku.ClientName);
     if (fm.horizontalAdvance(v2) < winWidth / 9.0)
         infos[i++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
@@ -417,7 +441,7 @@ void CrammingWindow::initNextKU()
         else    break;
     }
 
-    ui->lineEdit_PassingScore->setText(QString::number(cku_PassingScore));
+    ui->lineEdit_PassingScore->setText(QString::number(cku.PassingScore));
 
     ui->textEdit_Info->setPlainText(t);
 
@@ -484,6 +508,8 @@ void CrammingWindow::loadNewKU(int recursion_depth)
                    .arg(availableCategory->at(i)->name, availableCategory->at(i)->number);
     }
     SPDLOG_INFO(msg.toStdString());
+    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     if (!db.open()) {
         if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text())) {
             loadNewKU(++recursion_depth);
@@ -656,19 +682,19 @@ ORDER BY RANDOM() LIMIT 1";
 
     if (query.first()) {
         int i = 0;
-        cku_ID = query.value(i++).toInt();
-        cku_Question = query.value(i++).toString();
-        cku_Answer = query.value(i++).toString();
-        cku_PassingScore = query.value(i++).toDouble();
-        cku_PreviousScore = query.value(i++).toDouble();
-        cku_TimesPracticed = query.value(i++).toInt();
-        cku_InsertTime = query.value(i++).toDateTime();
-        cku_FirstPracticeTime = query.value(i++).toDateTime();
-        cku_LastPracticeTime = query.value(i++).toDateTime();
-        cku_Deadline = query.value(i++).toDateTime();
-        cku_ClientName = query.value(i++).toString();
-        cku_Category = query.value(i++).toString();
-        cku_SecSpent = query.value(i++).toInt();
+        cku.ID = query.value(i++).toInt();
+        cku.Question = query.value(i++).toString();
+        cku.Answer = query.value(i++).toString();
+        cku.PassingScore = query.value(i++).toDouble();
+        cku.PreviousScore = query.value(i++).toDouble();
+        cku.TimesPracticed = query.value(i++).toInt();
+        cku.InsertTime = query.value(i++).toDateTime();
+        cku.FirstPracticeTime = query.value(i++).toDateTime();
+        cku.LastPracticeTime = query.value(i++).toDateTime();
+        cku.Deadline = query.value(i++).toDateTime();
+        cku.ClientName = query.value(i++).toString();
+        cku.Category = query.value(i++).toString();
+        cku.SecSpent = query.value(i++).toInt();
         query.finish();
     } else {
         if (promptUserToRetryDBError("Extracting next KU from query.first()",
@@ -680,13 +706,9 @@ ORDER BY RANDOM() LIMIT 1";
         throw std::runtime_error(query.lastError().text().toStdString());
     }
 
-    ui->textEdit_Question->setPlainText(cku_Question);
+    ui->textEdit_Question->setPlainText(cku.Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
     adaptTexteditLineSpacing(ui->textEdit_Draft);
-    //    ui->plainTextEdit_Question->setPlainText(cku_Question);
-
-    // Problematic, some branches could leave db un-close()ed;
-    db.close();
 }
 
 void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
@@ -700,9 +722,9 @@ void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
         double newScore = calculateNewPreviousScore(t);
         ui->label_NewScore->setText(": " + QString::number(newScore, 'f', 1));
 
-        if (newScore > cku_PreviousScore)
+        if (newScore > cku.PreviousScore)
             ui->label_NewScore->setStyleSheet("QLabel { color : green; }");
-        else if (newScore < cku_PreviousScore)
+        else if (newScore < cku.PreviousScore)
             ui->label_NewScore->setStyleSheet("QLabel { color : red; }");
 
     }
@@ -710,8 +732,8 @@ void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
 
 double CrammingWindow::calculateNewPreviousScore(double newScore)
 {
-    double timesPracticed =  cku_TimesPracticed <= 9 ? cku_TimesPracticed : 9;
-    double previousScore = cku_PreviousScore;
+    double timesPracticed = cku.TimesPracticed <= 9 ? cku.TimesPracticed : 9;
+    double previousScore = cku.PreviousScore;
 
     previousScore = (newScore + previousScore * timesPracticed) / (timesPracticed + 1);
 
@@ -823,6 +845,8 @@ void CrammingWindow::initContextMenu()
     menuBlank->addSeparator();
 
     SearchOptions = new QHash<QString, QString>;
+    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     if (db.open()) {
         QSqlQuery *query = new QSqlQuery(db);
 
@@ -838,7 +862,7 @@ void CrammingWindow::initContextMenu()
             menuAnswer->addAction(actionSearchOption);
             menuBlank->addAction(actionSearchOption);
         }
-        db.close();
+
     } else {
         QMessageBox::warning(this, "Warning", "Cannot open the databse:\n" + db.lastError().text());
         QApplication::quit();
@@ -989,10 +1013,11 @@ void CrammingWindow::handleTTS(bool isQuestion)
     bool isTTSEnabled = false;
 
     if (isQuestion) {
-        originalText = cku_Question;
+        originalText = cku.Question;
         sanitizedFilename = convertStringToFilename(originalText);
         for (int i = 0; i < availableCategory->count(); i++) {
-            if (availableCategory->at(i)->name == cku_Category && availableCategory->at(i)->ttsOption == 1) {
+            if (availableCategory->at(i)->name == cku.Category
+                && availableCategory->at(i)->ttsOption == 1) {
                 isTTSEnabled = true;
                 break;
             }
@@ -1001,7 +1026,8 @@ void CrammingWindow::handleTTS(bool isQuestion)
         originalText = ui->textEdit_Answer->document()->findBlockByLineNumber(0).text();
         sanitizedFilename = convertStringToFilename(originalText);
         for (int i = 0; i < availableCategory->count(); i++) {
-            if (availableCategory->at(i)->name == cku_Category && availableCategory->at(i)->ttsOption == 2) {
+            if (availableCategory->at(i)->name == cku.Category
+                && availableCategory->at(i)->ttsOption == 2) {
                 isTTSEnabled = true;
                 break;
             }
@@ -1009,22 +1035,24 @@ void CrammingWindow::handleTTS(bool isQuestion)
     }
     sanitizedFilepath = parentDir + "/speeches/" + sanitizedFilename + ".mp3";
 
-    if (isTTSEnabled) {
-        QFileInfo check_file(sanitizedFilepath);
-        if (check_file.exists() && check_file.isFile()) {
-            SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath.toStdString());
-            player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
-            player->play();
-        } else {
-            auto url = "http://dict.youdao.com/dictvoice?audio=" + originalText
-                       + "&amp;amp;le=eng%3C";
-            SPDLOG_INFO("Start downloading TTS file from {} to {}",
-                        url.toStdString(),
-                        sanitizedFilepath.toStdString());
-            ttsDownloader->doDownload(url, sanitizedFilepath);
-            // http, instead of https, is used here.
-            // If https is used, the program would encounter a "TLS initialization failed" error on Windows. Not sure what would happen on Linux
-        }
+    if (!isTTSEnabled) {
+        delete ttsDownloader;
+        return;
+    }
+
+    QFileInfo check_file(sanitizedFilepath);
+    if (check_file.exists() && check_file.isFile()) {
+        SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath.toStdString());
+        player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
+        player->play();
+    } else {
+        auto url = "http://dict.youdao.com/dictvoice?audio=" + originalText + "&amp;amp;le=eng%3C";
+        SPDLOG_INFO("Start downloading TTS file from {} to {}",
+                    url.toStdString(),
+                    sanitizedFilepath.toStdString());
+        ttsDownloader->doDownload(url, sanitizedFilepath);
+        // http, instead of https, is used here.
+        // If https is used, the program would encounter a "TLS initialization failed" error on Windows. Not sure what would happen on Linux
     }
 
     // ttsDownloader->deleteLater();

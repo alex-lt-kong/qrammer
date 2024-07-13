@@ -7,7 +7,7 @@
 class Snapshot
 {
 public:
-    Snapshot(QSqlDatabase mySQL, QString category);
+    Snapshot(QString category);
     QString getSnapshot();
     QString getComparison(bool detailed);
 
@@ -23,7 +23,6 @@ private:
     double daysWaited;
     double timeSpent;
     QDateTime lastStudied;
-    QSqlDatabase mySQL;
     QString category;
 
 };
