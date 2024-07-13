@@ -39,14 +39,15 @@ int main(int argc, char *argv[])
 {
     init_logger();
     SPDLOG_INFO("Qrammer started");
+    // QSqlDatabase::addDatabase("QSQLITE");
     QApplication a(argc, argv);
     MainWindow w;
     w.showMaximized();
 
     QDir tmpDir = QApplication::applicationFilePath();
     tmpDir.cdUp();
-    QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansMonoCJKsc-Regular.otf");
-    QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansCJKsc-Medium.otf");
+    // QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansMonoCJKsc-Regular.otf");
+    // QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansCJKsc-Medium.otf");
 
     if (QGuiApplication::platformName() == "windows") {
         QFont font = w.font();

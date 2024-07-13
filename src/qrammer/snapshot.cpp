@@ -9,8 +9,8 @@ Snapshot::Snapshot(QString category)
 QString Snapshot::getSnapshot()
 {
     QString result;
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.setDatabaseName(databaseName);
     if (db.open()) {
         QSqlQuery query = QSqlQuery(db);
         query.prepare(
@@ -160,8 +160,8 @@ QString Snapshot::getComparison(bool detailed)
     double t_learned = 0;
     double t_ddlPassed = 0;
 
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.setDatabaseName(databaseName);
     QSqlQuery query = QSqlQuery(db);
 
     if (db.open()) {

@@ -1,5 +1,5 @@
-#ifndef WINDOW_CRAM_H
-#define WINDOW_CRAM_H
+#ifndef WINDOW_CRAMMING_H
+#define WINDOW_CRAMMING_H
 
 #include "knowledge_unit.h"
 #include "window_overview.h"
@@ -20,7 +20,7 @@
 #include <QtWidgets>
 
 namespace Ui {
-class PracticeWindow;
+class CrammingWindow;
 }
 
 class CrammingWindow : public QMainWindow
@@ -40,13 +40,13 @@ private slots:
 
     void on_comboBox_Score_currentTextChanged(const QString &);
 
-    void on_actionResetTimer_triggered();
+    void actionResetTimer_triggered_cb();
 
-    void on_actionBossMode_triggered();
+    void actionBossMode_triggered_cb();
 
-    void on_actionStartLearning_triggered();
+    void actionStartLearning_triggered_cb();
 
-    void on_actionExit_triggered();
+    void actionExit_triggered_cb();
 
     void showContextMenu_Question(const QPoint &pt);
 
@@ -79,7 +79,7 @@ protected:
     void closeEvent (QCloseEvent *event) override;
 
 private:
-    Ui::PracticeWindow *ui;
+    Ui::CrammingWindow *ui;
     // cku: current knowledge unit
     struct knowledge_unit cku;
 
@@ -144,4 +144,4 @@ private:
 };
 
 
-#endif // WINDOW_CRAM_H
+#endif // WINDOW_CRAMMING_H

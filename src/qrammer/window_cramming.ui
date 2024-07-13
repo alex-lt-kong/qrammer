@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>PracticeWindow</class>
- <widget class="QMainWindow" name="PracticeWindow">
+ <class>CrammingWindow</class>
+ <widget class="QMainWindow" name="CrammingWindow">
   <property name="geometry">
    <rect>
     <x>0</x>

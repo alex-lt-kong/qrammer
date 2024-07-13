@@ -1,9 +1,9 @@
-#include "window_cram.h"
+#include "src/qrammer/window_cramming.h"
 #include "bmbox.h"
 #include "downloader.h"
 #include "msgbox.h"
 #include "src/qrammer/global_variables.h"
-#include "ui_window_cram.h"
+#include "ui_window_cramming.h"
 
 #include <QAudioOutput>
 #include <QRandomGenerator>
@@ -12,7 +12,7 @@
 
 CrammingWindow::CrammingWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::PracticeWindow)
+    , ui(new Ui::CrammingWindow)
 {
     ui->setupUi(this);
 
@@ -48,13 +48,13 @@ void CrammingWindow::closeEvent(QCloseEvent *event)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this,
                                                                "Qrammer",
-                                                               tr("Are you sure to quit?\n"),
+                                                               "Are you sure to quit?\n",
                                                                QMessageBox::No | QMessageBox::Yes,
                                                                QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
             event->ignore();
     } else {
-        on_actionExit_triggered();
+        actionExit_triggered_cb();
         event->accept();
     }
 }
@@ -238,8 +238,8 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
         addedDays = addedDays > 0 ? addedDays : 0;
     }
 
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.setDatabaseName(databaseName);
     while (true) {
         if (!db.isOpen() && !db.open()) {
             if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text()))
@@ -505,11 +505,13 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     msg = QString("Remaining KUs to be crammed by category: ");
     for (int i = 0; i < availableCategory->length(); i++) {
         msg += QString("%1: %2, ")
-                   .arg(availableCategory->at(i)->name, availableCategory->at(i)->number);
+                   .arg(availableCategory->at(i)->name,
+                        QString::number(availableCategory->at(i)->number));
     }
     SPDLOG_INFO(msg.toStdString());
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.setDatabaseName(databaseName);
     if (!db.open()) {
         if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text())) {
             loadNewKU(++recursion_depth);
@@ -549,7 +551,7 @@ WHERE
     }
     if (query.next()) {
         dueNumByCat = query.value(0).toInt();
-        SPDLOG_INFO("dueNum of category {}: {}", currCat.toStdString(), dueNumByCat);
+        SPDLOG_INFO("dueNum of category [{}]: {}", currCat.toStdString(), dueNumByCat);
     } else {
         if (promptUserToRetryDBError("Extracting dueNumByCat from query.next()",
                                      db.databaseName(),
@@ -804,8 +806,13 @@ void CrammingWindow::finishLearning()
     for (int i = 0; i < availableCategory->count(); i++)
         temp += availableCategory->at(i)->snapshot->getComparison(QGuiApplication::platformName() != "android") + "\n";
 
-    QMessageBox *msg = new QMessageBox(QMessageBox::Information, "QJLT - Result", temp, QMessageBox::Ok, this);
-    msg->setFont(QFont("Noto Sans Mono CJK SC Regular", 1));
+    QMessageBox *msg = new QMessageBox(QMessageBox::Information,
+                                       "Qrammer - Result",
+                                       temp,
+                                       QMessageBox::Ok,
+                                       this);
+
+    msg->setFont(QFont("Mono", 1));
     msg->exec();
 
     trayIcon->hide();       // The Icon should be hide here since the program is quitted by the next line.
@@ -845,8 +852,8 @@ void CrammingWindow::initContextMenu()
     menuBlank->addSeparator();
 
     SearchOptions = new QHash<QString, QString>;
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    // db.setDatabaseName(databaseName);
     if (db.open()) {
         QSqlQuery *query = new QSqlQuery(db);
 
@@ -888,30 +895,29 @@ void CrammingWindow::initContextMenu()
 void CrammingWindow::initTrayMenu()
 {
     trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(QIcon(":/Main.ico"));
-    trayIcon->setToolTip("Mamsds QJoint Learning Tool");
-
+    trayIcon->setIcon(QIcon(":/qrammer.ico"));
+    trayIcon->setToolTip("Qrammer");
     trayIcon->show();
 
     QMenu* menuTray = new QMenu(this);
 
     QAction* actionStartLearning = menuTray->addAction("Start Learning NOW!");
-    connect(actionStartLearning, SIGNAL(triggered()), this, SLOT(on_actionStartLearning_triggered()));
+    connect(actionStartLearning,
+            SIGNAL(triggered()),
+            this,
+            SLOT(actionStartLearning_triggered_cb()));
     menuTray->addAction(actionStartLearning);
 
     QAction* actionResetTimer = menuTray->addAction("Reset Timer");
-    connect(actionResetTimer,
-            SIGNAL(triggered()),
-            this,
-            SLOT(&CrammingWindow::on_actionResetTimer_triggered));
+    connect(actionResetTimer, SIGNAL(triggered()), this, SLOT(actionResetTimer_triggered_cb()));
     menuTray->addAction(actionResetTimer);
 
     QAction* actionBossMode = menuTray->addAction("Activate BM");
-    connect(actionBossMode, SIGNAL(triggered()), this, SLOT(on_actionBossMode_triggered()));
+    connect(actionBossMode, SIGNAL(triggered()), this, SLOT(actionBossMode_triggered_cb()));
     menuTray->addAction(actionBossMode);
 
     QAction* actionExit = menuTray->addAction("Exit");
-    connect(actionExit, SIGNAL(triggered()), this, SLOT(on_actionExit_triggered()));
+    connect(actionExit, SIGNAL(triggered()), this, SLOT(actionExit_triggered_cb()));
     menuTray->addAction(actionExit);
 
     trayIcon->setContextMenu(menuTray);
@@ -960,10 +966,8 @@ void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const 
 
 void CrammingWindow::setWindowStyle()
 {
-    if (!isVisible())       // This condition is needed since this function can accidentally show the window when it should be hidden.
+    if (!isVisible()) // This condition is needed since this function can accidentally show the window when it should be hidden.
         return;
-
- //   QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
 
     QStyleOptionTitleBar so;
     so.titleBarFlags = Qt::Window;
@@ -1059,7 +1063,7 @@ void CrammingWindow::handleTTS(bool isQuestion)
     //Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
 }
 
-void CrammingWindow::on_actionResetTimer_triggered()
+void CrammingWindow::actionResetTimer_triggered_cb()
 {
     if (bossMode) {
         return;
@@ -1069,7 +1073,7 @@ void CrammingWindow::on_actionResetTimer_triggered()
     }
 }
 
-void CrammingWindow::on_actionBossMode_triggered()
+void CrammingWindow::actionBossMode_triggered_cb()
 {
     bossMode = !bossMode;
     if (bossMode){
@@ -1090,7 +1094,7 @@ void CrammingWindow::on_actionBossMode_triggered()
     }
 }
 
-void CrammingWindow::on_actionStartLearning_triggered()
+void CrammingWindow::actionStartLearning_triggered_cb()
 {
     if (bossMode) {
         return;
@@ -1100,7 +1104,7 @@ void CrammingWindow::on_actionStartLearning_triggered()
     }
 }
 
-void CrammingWindow::on_actionExit_triggered()
+void CrammingWindow::actionExit_triggered_cb()
 {
     if (bossMode) {
         return;

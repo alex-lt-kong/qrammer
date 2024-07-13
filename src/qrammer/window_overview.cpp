@@ -1,7 +1,7 @@
 #include "window_overview.h"
 #include "global_variables.h"
 #include "src/qrammer/ui_window_overview.h"
-#include "window_cram.h"
+#include "window_cramming.h"
 
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
@@ -13,6 +13,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     initPlatformSpecificSettings();
+    db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
     if (!initCategoryStructure()) return;
      //To make sure that the program quits if database cannot be opened
     if (!initUI())
@@ -49,9 +51,7 @@ void MainWindow::closeEvent (QCloseEvent *event)
 
 bool MainWindow::initCategoryStructure()
 {
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
-    if (!db.open()) {
+    if (!db.isOpen() && !db.open()) {
         ui->pushButton_Start->setEnabled(false);
         auto errMsg = "Cannot open the databse file [" + db.databaseName()
                       + "]\nInternal error message:\n" + db.lastError().text();
@@ -112,18 +112,19 @@ ORDER BY category DESC
 
 bool MainWindow::initUI()
 {
-    auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.setDatabaseName(databaseName);
     if (!db.open()) {
-        QMessageBox::critical(this,
-                              "Mamsds Qrammer -Fatal Error",
-                              "Cannot open the databse [" + db.databaseName()
-                                  + "].\n\nInternal error message:\n" + db.lastError().text());
+        auto errMsg = QString("Cannot open the databse [%1]. Internal error message: %2")
+                          .arg(db.databaseName(), db.lastError().text());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
+        QApplication::quit();
         return false;
     }
 
     QSqlQueryModel *model = new QSqlQueryModel();
-    QSqlQuery *query = new QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(db);
 
     if (QGuiApplication::primaryScreen()->geometry().width() >= 1080) {
         auto stmt = R"***(
@@ -139,7 +140,7 @@ FROM knowledge_units
 WHERE is_shelved = 0
 ORDER BY last_practice_time DESC
 )***";
-        query->prepare(stmt);
+        query.prepare(stmt);
     } else {
         auto stmt = R"***(
 SELECT
@@ -149,39 +150,36 @@ FROM knowledge_units
 WHERE is_shelved = 0
 ORDER BY last_practice_time DESC
 )***";
-        query->prepare(stmt);
+        query.prepare(stmt);
     }
-        query->exec();
+    query.exec();
 
-        model->setQuery(std::move(*query));
-        ui->tableView_KU->setModel(model);
-        ui->tableView_KU->setSortingEnabled(true);
-        ui->tableView_KU->horizontalHeader()->setSectionsClickable(1);
+    model->setQuery(std::move(query));
+    ui->tableView_KU->setModel(model);
+    ui->tableView_KU->setSortingEnabled(true);
+    ui->tableView_KU->horizontalHeader()->setSectionsClickable(1);
 
-        ui->tableView_KU->setSelectionBehavior(QAbstractItemView::SelectRows);
+    ui->tableView_KU->setSelectionBehavior(QAbstractItemView::SelectRows);
 
-        ui->tableView_KU->resizeColumnsToContents();
-        ui->tableView_KU->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    ui->tableView_KU->resizeColumnsToContents();
+    ui->tableView_KU->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
 
-        ui->tableView_KU->show();
-//        QFont font = QFont("Noto Sans CJK SC Medium", 9);
- /*       if (QGuiApplication::platformName() == "windows")
-        {
-         //   QFont font = QFont("Microsoft Yahei", 9);
-         //   font.setStyleStrategy(QFont::PreferAntialias);
-         //   ui->tableView_KU->setFont(font);    // Don't know why it is special. Just needed...
-        }*/
-        /* Enable the sort function */
-        QSortFilterProxyModel *m=new QSortFilterProxyModel(this);
-        m->setDynamicSortFilter(true);
-        m->setSourceModel(model);
-        ui->tableView_KU->setModel(m);
-        ui->tableView_KU->setSortingEnabled(true);
+    ui->tableView_KU->show();
 
-        ui->tableView_KU->grabGesture(Qt::SwipeGesture);
+    // This new then delete pattern is used in official examples...
+    // https://doc.qt.io/qt-6/qabstractitemview.html#setModel
+    QSortFilterProxyModel *m = new QSortFilterProxyModel(this);
+    m->setDynamicSortFilter(true);
+    m->setSourceModel(model);
+    ui->tableView_KU->setModel(m);
+    // delete m;
+    //delete model;
+    ui->tableView_KU->setSortingEnabled(true);
 
-        ui->lineEdit_NumberstoLearn->setFocus();
-        return true;
+    ui->tableView_KU->grabGesture(Qt::SwipeGesture);
+
+    ui->lineEdit_NumberstoLearn->setFocus();
+    return true;
 }
 
 void MainWindow::initSettings()
@@ -205,21 +203,26 @@ void MainWindow::initStatistics()
         ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
     }
 
+    /*
     if (QGuiApplication::platformName() == "windows" || QGuiApplication::platformName() == "xcb") {
         // XCB is the X11 plugin used on regular desktop Linux platforms.
-        ui->plainTextEdit_Statistics->setFont(QFont("Noto Sans Mono CJK SC Regular"));
+        // ui->plainTextEdit_Statistics->setFont(QFont("Noto Sans Mono CJK SC Regular"));
     } else if (QGuiApplication::platformName() == "android") {
-        ui->plainTextEdit_Statistics->setFont(QFont("Droid Sans Mono"));
+        // ui->plainTextEdit_Statistics->setFont(QFont("Droid Sans Mono"));
     }
+    */
 }
 
 void MainWindow::on_pushButton_Start_clicked()
 {
+    SPDLOG_INFO("Cramming session about to start");
     ui->pushButton_Start->setEnabled(false); // To avoid this event from being triggered twice (which would initiate two practice windows)
 
+    QString kuToCramByCatetory;
     for (int i = 0; i < allCats->count(); i++)
-        qDebug() << allCats->at(i)->name + ": " + QString::number(allCats->at(i)->ttsOption);
-    //static QRegularExpression re("SEARCHING...", QRegularExpression::CaseInsensitiveOption);
+        kuToCramByCatetory += allCats->at(i)->name + ": "
+                              + QString::number(allCats->at(i)->ttsOption) + ", ";
+    SPDLOG_INFO("TTS Option by category: {}", kuToCramByCatetory.toStdString());
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_NumberstoLearn->text().split(rx);
 
