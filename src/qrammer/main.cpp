@@ -18,7 +18,7 @@ void init_logger()
 
     size_t max_size_bytes = 10 * 1024 * 1024;
     size_t max_files = 3;
-    auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>("logs/qjlt.log",
+    auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>("logs/qrammer.log",
                                                                         max_size_bytes,
                                                                         max_files);
 
@@ -38,7 +38,7 @@ void init_logger()
 int main(int argc, char *argv[])
 {
     init_logger();
-    SPDLOG_INFO("QJLT started");
+    SPDLOG_INFO("Qrammer started");
     QApplication a(argc, argv);
     MainWindow w;
     w.showMaximized();

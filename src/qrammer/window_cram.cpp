@@ -35,11 +35,11 @@ CrammingWindow::CrammingWindow(QWidget *parent, QSqlDatabase mySQL)
     initContextMenu();
 
     QSettings settings("AKStudio", "Qrammer");
-    clientName = settings.value("ClientName", "QJLT-Unspecified").toString();
+    clientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
 
-//    initNextKU();
+    //    initNextKU();
 
-//    setWindowStyle();    
+    //    setWindowStyle();
 }
 
 CrammingWindow::~CrammingWindow()
@@ -143,7 +143,7 @@ void CrammingWindow::init(
     for (int i = 0; i < availableCat->count(); i++)
         totalKU += availableCat->at(i)->number;
 
-    outstandingKU = totalKU;
+    remainingKUsToCram = totalKU;
 }
 
 void CrammingWindow::on_pushButton_Next_clicked()
@@ -156,7 +156,8 @@ void CrammingWindow::on_pushButton_Next_clicked()
 
     if (!finalizeLastKU()) return;
 
-    if (interval > 0 && (totalKU - outstandingKU) > 0 && (totalKU - outstandingKU) % number == 0) {
+    if (interval > 0 && (totalKU - remainingKUsToCram) > 0
+        && (totalKU - remainingKUsToCram) % number == 0) {
         startInterval();
     } else {
         initNextKU();
@@ -178,7 +179,8 @@ void CrammingWindow::tmrInterval()
     } else {
         secDelayed++;
         trayIcon->setToolTip("Mamsds QJoint Learning Tool\nProgress: "
-                             + QString::number(totalKU - outstandingKU ) + "/" + QString::number(totalKU)
+                             + QString::number(totalKU - remainingKUsToCram) + "/"
+                             + QString::number(totalKU)
                              + "\nWait: " + QString::number(interval * 60 - secDelayed) + " sec");
     }
 
@@ -243,10 +245,10 @@ bool CrammingWindow::finalizeLastKU()
 
     while (true) {
         if (!db.open()) {
-            if (handleDatabaseOperationError("open database",
-                                             db.databaseName(),
-                                             db.lastError().databaseText() + "\n"
-                                                 + db.lastError().driverText()))
+            if (promptUserToRetryDBError("open database",
+                                         db.databaseName(),
+                                         db.lastError().databaseText() + "\n"
+                                             + db.lastError().driverText()))
                 continue;
             else
                 break;
@@ -266,10 +268,10 @@ bool CrammingWindow::finalizeLastKU()
         query->bindValue(":id", cku_ID);
 
         if (!query->exec()){
-            if (handleDatabaseOperationError("open database",
-                                             db.databaseName(),
-                                             query->lastError().databaseText() + "\n"
-                                                 + query->lastError().driverText()))
+            if (promptUserToRetryDBError("open database",
+                                         db.databaseName(),
+                                         query->lastError().databaseText() + "\n"
+                                             + query->lastError().driverText()))
                 continue;
             else break; // Need to consider whether this break is needed.
         }
@@ -278,10 +280,10 @@ bool CrammingWindow::finalizeLastKU()
             query->prepare("UPDATE knowledge_units SET first_practice_time = DATETIME('Now', 'localtime') WHERE id = :id");
             query->bindValue(":id", cku_ID);
             if (!query->exec()){
-                if (handleDatabaseOperationError("open database",
-                                                 db.databaseName(),
-                                                 query->lastError().databaseText() + "\n"
-                                                     + query->lastError().driverText()))
+                if (promptUserToRetryDBError("open database",
+                                             db.databaseName(),
+                                             query->lastError().databaseText() + "\n"
+                                                 + query->lastError().driverText()))
                     continue;
                 else break; // Need to consider whether this break is needed.
             }
@@ -293,7 +295,7 @@ bool CrammingWindow::finalizeLastKU()
 
     // These two operations should only happen aftere the database is written is successfully.
     availableCategory->at(currCatIndex)->number--;
-    outstandingKU--;
+    remainingKUsToCram--;
 
     for (int i = 0; i < availableCategory->count(); i++)
         if (availableCategory->at(i)->number > 0)
@@ -387,8 +389,10 @@ void CrammingWindow::initNextKU()
         infos[i++] = v1;
 
     if (isAndroid || winWidth <= 1200) {
-        v1 = "Prog.: " + QString::number(totalKU - outstandingKU + 1) + "/" + QString::number(totalKU);
-        v2 = "Progress: " + QString::number(totalKU - outstandingKU + 1) + "/" + QString::number(totalKU);
+        v1 = "Prog.: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
+             + QString::number(totalKU);
+        v2 = "Progress: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
+             + QString::number(totalKU);
         (fm.horizontalAdvance(v2) < winWidth * 1.9 / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
 
         ui->progressBar_Learning->setVisible(false);
@@ -400,8 +404,10 @@ void CrammingWindow::initNextKU()
             v1 += ", ";
         }
         infos[i++] = v1.left(v1.length() - 2);
-        ui->progressBar_Learning->setValue(static_cast<int>((totalKU - outstandingKU + 1) * 100.0 / (totalKU)));
-        ui->progressBar_Learning->setFormat(QString::number(totalKU - outstandingKU + 1) + "/" + QString::number(totalKU));
+        ui->progressBar_Learning->setValue(
+            static_cast<int>((totalKU - remainingKUsToCram + 1) * 100.0 / (totalKU)));
+        ui->progressBar_Learning->setFormat(QString::number(totalKU - remainingKUsToCram + 1) + "/"
+                                            + QString::number(totalKU));
         ui->progressBar_Learning->setVisible(true);
     }
 
@@ -434,27 +440,45 @@ void CrammingWindow::initNextKU()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 }
 
-int CrammingWindow::determineCategoryforNewKU()
+int CrammingWindow::pickCategoryforNewKU()
 {
-    int r = ranGen.generate() % outstandingKU;
+    int r = ranGen.generate() % remainingKUsToCram;
     int s = 0;
 
+    // It tries to draw a category probabilistically using remaining KUs' distribution
     for (int i = 0; i < availableCategory->count(); i++) {
         s += availableCategory->at(i)->number;
         if (r < s) {
             return i;
         }
     }
-    return -1;
+    throw std::runtime_error("pickCategoryforNewKU() failed");
 }
 
 void CrammingWindow::loadNewKU(int recursion_depth)
 {
-    currCatIndex = determineCategoryforNewKU();
+    auto max_retry = 100;
+    QString msg = QString("Loading new knowledge unit (recursion_depth: %1, max_depth: %2) ")
+                      .arg(recursion_depth, max_retry);
+    if (recursion_depth > max_retry) {
+        auto errMsg = QString("max_retry (%1) reached, the program must exit").arg(max_retry);
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
+        throw std::runtime_error(errMsg.toStdString());
+    }
+
+    try {
+        currCatIndex = pickCategoryforNewKU();
+    } catch (std::runtime_error &e) {
+        SPDLOG_ERROR(e.what());
+        QMessageBox::critical(this, "Qrammer - Critical", e.what());
+        // let someone higher up the call stack handle it if they want
+        throw;
+    }
+    //
     auto currCat = availableCategory->at(currCatIndex)->name;
-    QString msg
-        = QString("Loading new knowledge unit (recursion_depth: %1), remaining KUs by category: ")
-              .arg(recursion_depth);
+
+    msg = QString("Remaining KUs to be crammed by category: ");
     for (int i = 0; i < availableCategory->length(); i++) {
         msg += QString("%1: %2, ")
                    .arg(availableCategory->at(i)->name)
@@ -462,10 +486,11 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
     SPDLOG_INFO(msg.toStdString());
     if (!db.open()) {
-        auto errMsg = "Cannot open the databse:\n" + db.lastError().text();
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
-        QApplication::quit();
+        if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(db.lastError().text().toStdString());
     }
     QSqlQuery query = QSqlQuery(db);
     auto stmt = R"***(
@@ -476,48 +501,92 @@ WHERE
     deadline <= DATETIME('now', 'localtime') AND
     is_shelved = 0
 )***";
-    query.prepare(stmt);
+    if (!query.prepare(stmt)) {
+        if (promptUserToRetryDBError(QString("query.prepare(%1)").arg(stmt),
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
     query.bindValue(":category", currCat);
 
     int dueNumByCat = 0;
     if (!query.exec()) {
-        auto errMsg = QString("Error executing query: %1").arg(query.lastError().text());
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
-        return;
-    } else if (query.next()) {
+        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
+    if (query.next()) {
         dueNumByCat = query.value(0).toInt();
         SPDLOG_INFO("dueNum of category {}: {}", currCat.toStdString(), dueNumByCat);
     } else {
-        auto errMsg = QString("Error querying dueNum of category %1: %2")
-                          .arg(currCat)
-                          .arg(query.lastError().text());
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
-        return;
+        if (promptUserToRetryDBError("Extracting dueNumByCat from query.next()",
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
     }
 
-    query.prepare(R"***(
+    stmt = R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE category = :category AND is_shelved = 0
-)***");
+)***";
+    if (!query.prepare(stmt)) {
+        if (promptUserToRetryDBError(QString("query.prepare(%1)").arg(stmt),
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
     query.bindValue(":category", currCat);
-    query.exec();
-    query.next();
-    int TotalNum = query.value(0).toInt();
 
-    double urgencyCoef = 1
-                         - (qPow(static_cast<double>(TotalNum - dueNumByCat) / TotalNum,
-                                 0.0275 * TotalNum + dueNumByCat)
-                            * 0.65);
-    SPDLOG_INFO("urgencyCoef = {}", urgencyCoef);
+    if (!query.exec()) {
+        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
+    int TotalNum;
+    if (query.next()) {
+        TotalNum = query.value(0).toInt();
+    } else {
+        if (promptUserToRetryDBError("Extracting TotalNum from query.next()",
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
+
+    double urgencyCoeff = 1
+                          - (qPow(static_cast<double>(TotalNum - dueNumByCat) / TotalNum,
+                                  0.0275 * TotalNum + dueNumByCat)
+                             * 0.65);
+    SPDLOG_INFO("TotalNum: {}, dueNumByCat: {}, urgencyCoef: {}",
+                TotalNum,
+                dueNumByCat,
+                urgencyCoeff);
     QString columns
         = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, "
           "first_practice_time, last_practice_time, deadline, client_name, category, time_used";
     double r = ranGen.generateDouble();
     SPDLOG_INFO("A random number in [0, 1): {}", r);
-    if (r < urgencyCoef) {
+    if (r < urgencyCoeff) {
         SPDLOG_INFO("SELECTing an urgent unit");
         auto stmt = QString(R"***(
 SELECT %1
@@ -576,37 +645,42 @@ ORDER BY RANDOM() LIMIT 1";
         }
     }
 
-    if (query.exec()) {
-        if (query.first()) {
-            int i = 0;
-            cku_ID = query.value(i++).toInt();
-            cku_Question = query.value(i++).toString();
-            cku_Answer = query.value(i++).toString();
-            cku_PassingScore = query.value(i++).toDouble();
-            cku_PreviousScore = query.value(i++).toDouble();
-            cku_TimesPracticed = query.value(i++).toInt();
-            cku_InsertTime = query.value(i++).toDateTime();
-            cku_FirstPracticeTime = query.value(i++).toDateTime();
-            cku_LastPracticeTime = query.value(i++).toDateTime();
-            cku_Deadline = query.value(i++).toDateTime();
-            cku_ClientName = query.value(i++).toString();
-            cku_Category = query.value(i++).toString();
-            cku_SecSpent = query.value(i++).toInt();
-            query.finish();
-        } else if (recursion_depth < 100) {
+    if (!query.exec()) {
+        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
+                                     db.databaseName(),
+                                     db.lastError().text())) {
             loadNewKU(++recursion_depth);
-        } else {
-            auto errMsg = "Cannot load a new Knowledge Unit and max_recursion_depth reached";
-            SPDLOG_ERROR(errMsg);
-            QMessageBox::critical(this, "Qrammer - Critical", errMsg);
             return;
         }
-    } else {
-        auto errMsg = QString("Query execution failed: %1").arg(query.lastError().text());
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Critical", errMsg);
-        return;
+        throw std::runtime_error(query.lastError().text().toStdString());
     }
+
+    if (query.first()) {
+        int i = 0;
+        cku_ID = query.value(i++).toInt();
+        cku_Question = query.value(i++).toString();
+        cku_Answer = query.value(i++).toString();
+        cku_PassingScore = query.value(i++).toDouble();
+        cku_PreviousScore = query.value(i++).toDouble();
+        cku_TimesPracticed = query.value(i++).toInt();
+        cku_InsertTime = query.value(i++).toDateTime();
+        cku_FirstPracticeTime = query.value(i++).toDateTime();
+        cku_LastPracticeTime = query.value(i++).toDateTime();
+        cku_Deadline = query.value(i++).toDateTime();
+        cku_ClientName = query.value(i++).toString();
+        cku_Category = query.value(i++).toString();
+        cku_SecSpent = query.value(i++).toInt();
+        query.finish();
+    } else {
+        if (promptUserToRetryDBError("Extracting next KU from query.first()",
+                                     db.databaseName(),
+                                     db.lastError().text())) {
+            loadNewKU(++recursion_depth);
+            return;
+        }
+        throw std::runtime_error(query.lastError().text().toStdString());
+    }
+
     ui->textEdit_Question->setPlainText(cku_Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
     adaptTexteditLineSpacing(ui->textEdit_Draft);
@@ -772,12 +846,20 @@ void CrammingWindow::initContextMenu()
     }
 
     ui->textEdit_Question->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->textEdit_Question, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu_Question(const QPoint)));
+    connect(ui->textEdit_Question,
+            SIGNAL(customContextMenuRequested(QPoint)),
+            this,
+            SLOT(showContextMenu_Question(QPoint)));
     ui->textEdit_Answer->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->textEdit_Answer, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu_Answer(const QPoint)));
+    connect(ui->textEdit_Answer,
+            SIGNAL(customContextMenuRequested(QPoint)),
+            this,
+            SLOT(showContextMenu_Answer(QPoint)));
     ui->textEdit_Draft->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->textEdit_Draft, SIGNAL(customContextMenuRequested(const QPoint)), this, SLOT(showContextMenu_Blank(const QPoint)));
-
+    connect(ui->textEdit_Draft,
+            SIGNAL(customContextMenuRequested(QPoint)),
+            this,
+            SLOT(showContextMenu_Blank(QPoint)));
 }
 
 void CrammingWindow::initTrayMenu()
@@ -795,7 +877,10 @@ void CrammingWindow::initTrayMenu()
     menuTray->addAction(actionStartLearning);
 
     QAction* actionResetTimer = menuTray->addAction("Reset Timer");
-    connect(actionResetTimer, SIGNAL(triggered()), this, SLOT(on_actionResetTimer_triggered()));
+    connect(actionResetTimer,
+            SIGNAL(triggered()),
+            this,
+            SLOT(&CrammingWindow::on_actionResetTimer_triggered));
     menuTray->addAction(actionResetTimer);
 
     QAction* actionBossMode = menuTray->addAction("Activate BM");
@@ -1090,23 +1175,25 @@ void CrammingWindow::on_pushButton_Next_pressed()
 }
 
 // Return value: If user would like to retry the same database operation
-bool CrammingWindow::handleDatabaseOperationError(QString operationName,
-                                                  QString dbPath,
-                                                  QString lastError)
+bool CrammingWindow::promptUserToRetryDBError(QString operationName, QString dbPath, QString errMsg)
 {
+    auto msg = QString(R"*(Operation: %1
+Database path: %2
+Error message: %3)*")
+                   .arg(operationName, dbPath, errMsg);
+    SPDLOG_ERROR(msg.toStdString());
     QMessageBox::StandardButton resBtn = QMessageBox::warning(this,
-                                                              "Qrammer - Database Operation Error",
-                                                              "Operation name: " + operationName
-                                                                  + "\n" + "Database path: "
-                                                                  + dbPath + "\n"
-                                                                  + "Error message: " + lastError
-                                                                  + "\n\n" + "Retry the operation?",
+                                                              "Qrammer - DB Error",
+                                                              msg + "\n\n" + "Retry?",
                                                               QMessageBox::No | QMessageBox::Yes,
                                                               QMessageBox::Yes);
-    if (resBtn == QMessageBox::Yes)
+    if (resBtn == QMessageBox::Yes) {
+        SPDLOG_INFO("User selected Yes");
         return true;
-    else
+    } else {
+        SPDLOG_INFO("User selected No");
         return false;
+    }
 }
 
 void CrammingWindow::on_pushButton_Switch_pressed()

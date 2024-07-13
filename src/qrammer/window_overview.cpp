@@ -33,9 +33,11 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
 
 void MainWindow::closeEvent (QCloseEvent *event)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(
-        this, "QJLT", tr("Are you sure to quit?\n"), QMessageBox::No | QMessageBox::Yes, QMessageBox::Yes
-    );
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this,
+                                                               "Qrammer",
+                                                               tr("Are you sure to quit?\n"),
+                                                               QMessageBox::No | QMessageBox::Yes,
+                                                               QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
         event->ignore();
     } else {
@@ -306,7 +308,7 @@ void MainWindow::initPlatformSpecificSettings()
         ui->groupBox_DBContent->setVisible(false);
 
         QSettings settings("AKStudio", "Qrammer");
-        //     settings.setValue("ClientType", "QJLT-Android");
+        //     settings.setValue("ClientType", "Qrammer-Android");
         settings.setValue("FontSize", 12);
         settings.setValue("Interval", "0,0");
         settings.setValue("NKI", 10);

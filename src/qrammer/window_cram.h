@@ -130,15 +130,15 @@ private:
     void setWindowStyle();
     QString convertStringToFilename(QString name);
     void handleTTS(bool isQuestion);
-    int determineCategoryforNewKU();
+    int pickCategoryforNewKU();
     bool downloadTTSFile(QString text);
-    bool handleDatabaseOperationError(QString operationName, QString dbPath, QString lastError);
+    bool promptUserToRetryDBError(QString operationName, QString dbPath, QString lastError);
     void startInterval();
 
     int currCatIndex;
     int totalKU;
     int currentScore;
-    int outstandingKU;
+    int remainingKUsToCram;
 
     QMediaPlayer *player;
     int secDelayed;
