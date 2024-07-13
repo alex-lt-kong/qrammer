@@ -481,8 +481,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     msg = QString("Remaining KUs to be crammed by category: ");
     for (int i = 0; i < availableCategory->length(); i++) {
         msg += QString("%1: %2, ")
-                   .arg(availableCategory->at(i)->name)
-                   .arg(availableCategory->at(i)->number);
+                   .arg(availableCategory->at(i)->name, availableCategory->at(i)->number);
     }
     SPDLOG_INFO(msg.toStdString());
     if (!db.open()) {
@@ -514,9 +513,9 @@ WHERE
 
     int dueNumByCat = 0;
     if (!query.exec()) {
-        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
+        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n%1").arg(stmt),
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -528,7 +527,7 @@ WHERE
     } else {
         if (promptUserToRetryDBError("Extracting dueNumByCat from query.next()",
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -543,7 +542,7 @@ WHERE category = :category AND is_shelved = 0
     if (!query.prepare(stmt)) {
         if (promptUserToRetryDBError(QString("query.prepare(%1)").arg(stmt),
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -552,9 +551,9 @@ WHERE category = :category AND is_shelved = 0
     query.bindValue(":category", currCat);
 
     if (!query.exec()) {
-        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
+        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n%1").arg(stmt),
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -566,7 +565,7 @@ WHERE category = :category AND is_shelved = 0
     } else {
         if (promptUserToRetryDBError("Extracting TotalNum from query.next()",
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
