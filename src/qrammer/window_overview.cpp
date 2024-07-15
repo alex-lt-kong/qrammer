@@ -3,6 +3,7 @@
 #include "src/qrammer/ui_window_overview.h"
 #include "window_cramming.h"
 
+#include <QDir>
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
 
@@ -184,8 +185,6 @@ ORDER BY last_practice_time DESC
 
 void MainWindow::initSettings()
 {
-    QSettings settings("AKStudio", "Qrammer");
-
     ui->lineEdit_FontSize->setValidator(new QIntValidator(0, 50, this));
     ui->lineEdit_NKI->setValidator(new QIntValidator(0, 99, this));
     ui->lineEdit_ClientName->setText(settings.value("ClientName", "Qrammer-Notset").toString());
@@ -247,8 +246,6 @@ void MainWindow::on_pushButton_Start_clicked()
         t2 = tt.at(1).toInt();
     }
 
-    QSettings settings("AKStudio", "Qrammer");
-
     pW->init(allCats, settings.value("NKI", 50).toInt(), t1, t2, settings.value("WindowStyle", "1111").toInt());
     pW->show();
     pW->initNextKU();
@@ -259,7 +256,6 @@ void MainWindow::on_pushButton_Start_clicked()
 
 void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 {
-    QSettings settings("AKStudio", "Qrammer");
     if (ui->lineEdit_WindowStyle->text() == "1000" || ui->lineEdit_WindowStyle->text() == "0001"
         || ui->lineEdit_WindowStyle->text() == "1111") {
         settings.setValue("WindowStyle", ui->lineEdit_WindowStyle->text());
@@ -269,14 +265,12 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 
 void MainWindow::on_lineEdit_NKI_textChanged(const QString &)
 {
-    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("NKI", ui->lineEdit_NKI->text());
     initSettings();
 }
 
 void MainWindow::on_lineEdit_FontSize_textChanged(const QString &)
 {
-    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("FontSize", ui->lineEdit_FontSize->text());
     initSettings();
 }
@@ -288,13 +282,10 @@ void MainWindow::on_pushButton_Quit_clicked()
 
 void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 {
-    QSettings settings("AKStudio", "Qrammer");
-
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_IntervalNum->text().split(rx);
     if (number.count() == 2) {
         settings.setValue("Interval", QString::number(number.at(0).toInt()) + ", " + QString::number(number.at(1).toInt()));
-   //     initSettings();
     }
 }
 
@@ -314,8 +305,6 @@ void MainWindow::initPlatformSpecificSettings()
 
         ui->groupBox_DBContent->setVisible(false);
 
-        QSettings settings("AKStudio", "Qrammer");
-        //     settings.setValue("ClientType", "Qrammer-Android");
         settings.setValue("FontSize", 12);
         settings.setValue("Interval", "0,0");
         settings.setValue("NKI", 10);
@@ -333,7 +322,6 @@ void MainWindow::initPlatformSpecificSettings()
 
 void MainWindow::on_lineEdit_ClientName_textChanged()
 {
-    QSettings settings("AKStudio", "Qrammer");
     settings.setValue("ClientName", ui->lineEdit_ClientName->text());
     initSettings();
 }

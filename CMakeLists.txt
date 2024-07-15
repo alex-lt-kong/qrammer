@@ -80,3 +80,6 @@ target_link_libraries(qrammer-db-util PRIVATE
     Qt::Sql
     spdlog::spdlog
 )
+
+file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/resources
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)

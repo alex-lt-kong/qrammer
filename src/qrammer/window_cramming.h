@@ -126,6 +126,10 @@ private:
     bool downloadTTSFile(QString text);
     bool promptUserToRetryDBError(QString operationName, QString dbPath, QString lastError);
     void startInterval();
+    void onAnswerShownCallback();
+    void onKuLoadCallback();
+    void preKuLoadGuiUpdate();
+    void postKuLoadGuiUpdate();
 
     int currCatIndex;
     int totalKU;

@@ -33,7 +33,6 @@ CrammingWindow::CrammingWindow(QWidget *parent)
     initUI();
     initContextMenu();
 
-    QSettings settings("AKStudio", "Qrammer");
     clientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
 
     cku.PreviousScore = 0;
@@ -118,7 +117,6 @@ void CrammingWindow::initPlatformSpecificSettings()
     ui->textEdit_DraftAndroid->setVisible(false);   //No matter if program is running on Android, this textEdit should be hide by default.
 
     if (!isAndroid) {
-        QSettings settings("AKStudio", "Qrammer");
         QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
         this->setStyleSheet(styleSheet);
     } else {
@@ -146,8 +144,9 @@ void CrammingWindow::init(
 void CrammingWindow::on_pushButton_Next_clicked()
 {
     if (!ui->pushButton_Next->isEnabled())
-        return;    
-    ui->pushButton_Next->setEnabled(false); // This line is to ensure that the user will not click the button twice.
+        return;
+    // This is to ensure that the user will not click the button twice.
+    ui->pushButton_Next->setEnabled(false);
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 
@@ -201,6 +200,21 @@ void CrammingWindow::tmrInterval()
     }
 }
 
+void CrammingWindow::onAnswerShownCallback()
+{
+    QString cmd = settings.value("Callbacks/OnAnswerShown", "").toString();
+    if (cmd.length() > 0) {
+        cmd = cmd.replace("{Question}", cku.Question)
+                  .replace("{Answer}", cku.Answer)
+                  .replace("{Category}", cku.Category)
+                  .replace("{ID}", QString::number(cku.ID));
+        SPDLOG_INFO("onAnswerShownCallback command to execute: {}", cmd.toStdString());
+        system(cmd.toStdString().c_str());
+    } else {
+        SPDLOG_INFO("onAnswerShownCallback is empty");
+    }
+}
+
 void CrammingWindow::on_pushButton_Check_clicked()
 {
     if (!ui->pushButton_Check->isEnabled())
@@ -214,6 +228,7 @@ void CrammingWindow::on_pushButton_Check_clicked()
         on_pushButton_Switch_pressed();
     }
     handleTTS(false);
+    onAnswerShownCallback();
 }
 
 bool CrammingWindow::finalizeTheKUJustBeingCrammed()
@@ -323,11 +338,11 @@ WHERE id = :id
     return false;
 }
 
-void CrammingWindow::initNextKU()
+void CrammingWindow::preKuLoadGuiUpdate()
 {
     this->setUpdatesEnabled(false);
 
-    setWindowStyle();   // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
+    setWindowStyle(); // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
 
     ui->textEdit_Answer->clear();
     ui->textEdit_Draft->clear();
@@ -344,10 +359,10 @@ void CrammingWindow::initNextKU()
 
     ui->pushButton_Check->setEnabled(true);
     ui->pushButton_Next->setEnabled(false);
+}
 
-    // Init the above first and then load new ku later.
-    loadNewKU(0);
-
+void CrammingWindow::postKuLoadGuiUpdate()
+{
     int winWidth = this->size().width();
     QFont myFont(ui->textEdit_Info->font());
     QFontMetrics fm(myFont);
@@ -423,8 +438,10 @@ void CrammingWindow::initNextKU()
     } else {
         v1 = "Breakdown: ";
         for (int j = 0; j < availableCategory->count(); j++) {
-            if (availableCategory->at(j)->number <= 0) continue;
-            v1 += availableCategory->at(j)->name + ": " + QString::number(availableCategory->at(j)->number);
+            if (availableCategory->at(j)->number <= 0)
+                continue;
+            v1 += availableCategory->at(j)->name + ": "
+                  + QString::number(availableCategory->at(j)->number);
             v1 += ", ";
         }
         infos[i++] = v1.left(v1.length() - 2);
@@ -436,32 +453,54 @@ void CrammingWindow::initNextKU()
     }
 
     for (int i = 0; i < 20; i++) {
-        if (infos[i].length() > 0)  t += infos[i];
-        if (infos[i + 1].length() > 0 && i < 19)  t +=  "; ";
-        else    break;
+        if (infos[i].length() > 0)
+            t += infos[i];
+        if (infos[i + 1].length() > 0 && i < 19)
+            t += "; ";
+        else
+            break;
     }
 
     ui->lineEdit_PassingScore->setText(QString::number(cku.PassingScore));
 
     ui->textEdit_Info->setPlainText(t);
 
-
-
     adaptTexteditHeight(ui->textEdit_Question);
     adaptTexteditHeight(ui->textEdit_Info);
     adaptTexteditHeight(ui->textEdit_Draft);
-    setWindowStyle();   // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
+    setWindowStyle(); // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
 
     ui->textEdit_Draft->setFocus();
 
     handleTTS(true);
 
     this->setUpdatesEnabled(true);
-    this->repaint();    // Without repaint, the whole window will not be painted at all.
-
-    kuStartLearningTime = QDateTime::currentSecsSinceEpoch();
+    this->repaint(); // Without repaint, the whole window will not be painted at all.
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+}
+
+void CrammingWindow::onKuLoadCallback()
+{
+    QString cmd = settings.value("Callbacks/OnKULoad", "").toString();
+    if (cmd.length() > 0) {
+        cmd = cmd.replace("{Question}", cku.Question)
+                  .replace("{Answer}", cku.Answer)
+                  .replace("{Category}", cku.Category)
+                  .replace("{ID}", QString::number(cku.ID));
+        SPDLOG_INFO("onKuLoadCallback command to execute: {}", cmd.toStdString());
+        system(cmd.toStdString().c_str());
+    } else {
+        SPDLOG_INFO("onKuLoadCallback is empty");
+    }
+}
+void CrammingWindow::initNextKU()
+{
+    preKuLoadGuiUpdate();
+    loadNewKU(0);
+    postKuLoadGuiUpdate();
+    onKuLoadCallback();
+    kuStartLearningTime = QDateTime::currentSecsSinceEpoch();
 }
 
 int CrammingWindow::pickCategoryforNewKU()
@@ -757,7 +796,6 @@ void CrammingWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
       textedit->setTextCursor(textcursor);
     }
 
-    QSettings settings("AKStudio", "Qrammer");
     QFont font = this->font();          // This is a simple hack to ensure that the format of pasted text would not impact the TextEdit.
   //  if (QGuiApplication::platformName() == "windows") // This is still an ugly hack for Windows platform.
   //      font.setFamily("Microsoft Yahei");
