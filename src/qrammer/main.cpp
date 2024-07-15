@@ -26,7 +26,7 @@ void init_logger()
     // q_size means the number of items in the queue, not the size in byte of the
     // queue
     init_thread_pool(1024 * 8, 1);
-    auto logger = std::make_shared<async_logger>("qlt_logger",
+    auto logger = std::make_shared<async_logger>("qrammer_logger",
                                                  sinks.begin(),
                                                  sinks.end(),
                                                  thread_pool(),

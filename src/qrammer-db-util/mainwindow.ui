@@ -11,10 +11,10 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Mamsds QJLT - DB Utility</string>
+   <string>Qrammer - DB Utility</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="res.qrc">
+   <iconset>
     <normaloff>:/Utility.ico</normaloff>:/Utility.ico</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
@@ -697,8 +697,6 @@
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources>
-  <include location="res.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

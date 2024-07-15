@@ -50,6 +50,8 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
     ./src/qrammer-db-util/mainwindow.cpp
     ./src/qrammer-db-util/mainwindow.h
     ./src/qrammer-db-util/mainwindow.ui
+    ./src/qrammer-db-util/global_variables.h
+    ./src/qrammer-db-util/global_variables.cpp
 )
 
 
@@ -76,4 +78,5 @@ target_link_libraries(qrammer-db-util PRIVATE
     Qt::Widgets
     Qt::Gui
     Qt::Sql
+    spdlog::spdlog
 )

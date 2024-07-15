@@ -1,16 +1,20 @@
 ﻿#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "src/qrammer-db-util/global_variables.h"
+#include "src/qrammer-db-util/ui_mainwindow.h"
+#include <spdlog/spdlog.h>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);
-
     QDir tmpDir = QApplication::applicationFilePath();
     tmpDir.cdUp();
     tmpDir.cdUp();
-    mySQL.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
+    db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    db.setDatabaseName(databaseName);
+    db.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
+
+    ui->setupUi(this);
 
     ui->lineEdit_Keyword->setFocus();
     ui->comboBox_Field->addItems({ "Question", "Answer", "ID" });
@@ -38,126 +42,159 @@ MainWindow::~MainWindow()
 
 void MainWindow::initCategory()
 {
-    if (mySQL.open()) {
-        ui->comboBox_Maintype_Search->clear();
-
-        QSqlQuery query = QSqlQuery(mySQL);
-        query.prepare("SELECT DISTINCT(category) FROM knowledge_units ORDER BY category ASC");
-        query.exec();
-
-        QStringList t;
-        while (query.next())
-            t.append(query.value(0).toString());
-        // A very weird workaround: if not receving all maintypes in t first and then add them to combox, only the first item would be added.
-        ui->comboBox_Maintype_Search->addItems(t);
-        ui->comboBox_Maintype_Meta->addItems(t);
-        mySQL.close();
-    } else {
-        QMessageBox::warning(this, "Warning", "Cannot open the database:\n" + mySQL.lastError().text());
+    if (!db.isOpen() && !db.open()) {
+        QMessageBox::warning(this,
+                             "Warning",
+                             QString("Cannot open the database %1:\n%2")
+                                 .arg(db.databaseName(), db.lastError().text()));
         QApplication::quit();
+        return;
     }
+    ui->comboBox_Maintype_Search->clear();
+
+    QSqlQuery query = QSqlQuery(db);
+    auto stmt = "SELECT DISTINCT(category) FROM knowledge_units ORDER BY category ASC";
+    if (!query.prepare(stmt)) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+    if (!query.exec()) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+
+    QStringList t;
+    while (query.next())
+        t.append(query.value(0).toString());
+    // A very weird workaround: if not receving all maintypes in t first and then add them to combox, only the first item would be added.
+    ui->comboBox_Maintype_Search->addItems(t);
+    ui->comboBox_Maintype_Meta->addItems(t);
+    db.close();
 }
 
 void MainWindow::conductDatabaseSearch(QString field, QString keyword, QString category)
 {
+    SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
-    if (mySQL.open()) {
-        QSqlQuery *query = new QSqlQuery(mySQL);
+    if (!db.isOpen() && !db.open()) {
+        SPDLOG_ERROR(db.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.lastError().text());
+        return;
+    }
+    auto stmt = QString(R"***(
+SELECT id, question
+FROM knowledge_units
+WHERE
+    category = :category AND
+    %1 LIKE :keyword
+LIMIT 50)***")
+                    .arg(field);
+    auto query = QSqlQuery(db);
+    if (!query.prepare(stmt)) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+    query.bindValue(":category", category);
+    query.bindValue(":keyword", keyword);
+    if (!query.exec()) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+    searchResults = new QMap<QString, int>;
 
-        query->prepare("SELECT id, question FROM knowledge_units WHERE category = :category AND " + field + " LIKE :keyword LIMIT 50");
-        query->bindValue(":category", category);
-        query->bindValue(":keyword", keyword);
-        query->exec();
-        searchResults = new QMap<QString, int>;
-
-        while (query->next()) {
-            searchResults->insert(query->value(1).toString(), query->value(0).toInt());
-            ui->listWidget_SearchResults->addItem(query->value(1).toString());
+    while (query.next()) {
+        searchResults->insert(query.value(1).toString(), query.value(0).toInt());
+        ui->listWidget_SearchResults->addItem(query.value(1).toString());
+        /*
             if (QGuiApplication::platformName() == "windows") {
                 QFont font;
                 font.setFamily("Microsoft Yahei");
                 ui->listWidget_SearchResults->setFont(font);
             }
-        }
-
-        if (ui->listWidget_SearchResults->count() > 0)
-            ui->listWidget_SearchResults->setCurrentRow(0);
-        else
-            showSingleKU(-1);
-
-        qDebug() << "COUNT(conductDatabaseSearch): " << searchResults->count();
-    } else {
-        QMessageBox::warning(this, "Warning", "Cannot open the database:\n" + mySQL.lastError().text());
-        QApplication::quit();
+            */
     }
+
+    if (ui->listWidget_SearchResults->count() > 0)
+        ui->listWidget_SearchResults->setCurrentRow(0);
+    else
+        showSingleKU(-1);
+    SPDLOG_INFO("Found {} matches", ui->listWidget_SearchResults->count());
 }
 
 void MainWindow::showSingleKU(int kuID)
 {
     currKUID = kuID;
-    if (mySQL.open())
-    {
-        QSqlQuery *query = new QSqlQuery(mySQL);
-        QString columns = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, first_practice_time, last_practice_time, deadline, category";
-        query->prepare("SELECT " + columns + " FROM knowledge_units WHERE id = :id");
-        query->bindValue(":id", kuID);
-        query->exec();
-        if (query->next())
-        {
-            ui->lineEdit_KUID->setText(query->value(0).toString());
-            ui->plainTextEdit_Question->setPlainText(query->value(1).toString());
-            ui->plainTextEdit_Answer->setPlainText(query->value(2).toString());
-            ui->lineEdit_PassingScore->setText(query->value(3).toString());
-            ui->lineEdit_TimesPracticed->setText(query->value(5).toString());
-            ui->comboBox_Maintype_Meta->setEditText(query->value(10).toString());
-            ui->lineEdit_Deadline->setText(query->value(9).toDateTime().toString("yyyy-MM-dd HH:mm:ss"));
+    if (!db.isOpen() && !db.open()) {
+        SPDLOG_ERROR(db.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.lastError().text());
+        return;
+    }
+    QSqlQuery query = QSqlQuery(db);
+    QString columns = "id, question, answer, passing_score, previous_score, times_practiced, "
+                      "insert_time, first_practice_time, last_practice_time, deadline, category";
+    auto stmt = QString("SELECT %1 FROM knowledge_units WHERE id = :id").arg(columns);
+    if (!query.prepare(stmt)) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+    query.bindValue(":id", kuID);
+    if (!query.exec()) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+        return;
+    }
+    if (query.next()) {
+        ui->lineEdit_KUID->setText(query.value(0).toString());
+        ui->plainTextEdit_Question->setPlainText(query.value(1).toString());
+        ui->plainTextEdit_Answer->setPlainText(query.value(2).toString());
+        ui->lineEdit_PassingScore->setText(query.value(3).toString());
+        ui->lineEdit_TimesPracticed->setText(query.value(5).toString());
+        ui->comboBox_Maintype_Meta->setEditText(query.value(10).toString());
+        ui->lineEdit_Deadline->setText(query.value(9).toDateTime().toString("yyyy-MM-dd HH:mm:ss"));
 
-            ui->lineEdit_InsertDate->setText(query->value(6).toDateTime().toString("yyyy-MM-dd"));
-            ui->lineEdit_1stPracticeDate->setText(query->value(7).toDateTime().toString("yyyy-MM-dd"));
-            ui->lineEdit_LastPracticeDate->setText(query->value(8).toDateTime().toString("yyyy-MM-dd"));
-            ui->lineEdit_PreviousScore->setText(QString::number(query->value(4).toInt()));
+        ui->lineEdit_InsertDate->setText(query.value(6).toDateTime().toString("yyyy-MM-dd"));
+        ui->lineEdit_1stPracticeDate->setText(query.value(7).toDateTime().toString("yyyy-MM-dd"));
+        ui->lineEdit_LastPracticeDate->setText(query.value(8).toDateTime().toString("yyyy-MM-dd"));
+        ui->lineEdit_PreviousScore->setText(QString::number(query.value(4).toInt()));
 
-            ui->pushButton_WriteDB->setText("Update");
-            ui->pushButton_Delete->setEnabled(true);
+        ui->pushButton_WriteDB->setText("Update");
+        ui->pushButton_Delete->setEnabled(true);
+    } else {
+        ui->lineEdit_KUID->setText("");
+
+        if (ui->comboBox_Field->currentText() == "Question") {
+            ui->plainTextEdit_Question->setPlainText(ui->lineEdit_Keyword->text());
+            ui->plainTextEdit_Answer->setPlainText("");
+        } else if (ui->comboBox_Field->currentText() == "Answer") {
+            ui->plainTextEdit_Question->setPlainText("");
+            ui->plainTextEdit_Answer->setPlainText(ui->lineEdit_Keyword->text());
         } else {
-            ui->lineEdit_KUID->setText("");
-
-            if (ui->comboBox_Field->currentText() == "Question") {
-                ui->plainTextEdit_Question->setPlainText(ui->lineEdit_Keyword->text());
-                ui->plainTextEdit_Answer->setPlainText("");
-            } else if (ui->comboBox_Field->currentText() == "Answer") {
-                ui->plainTextEdit_Question->setPlainText("");
-                ui->plainTextEdit_Answer->setPlainText(ui->lineEdit_Keyword->text());
-            }
-            else {
-                ui->plainTextEdit_Question->setPlainText("");
-                ui->plainTextEdit_Answer->setPlainText("");
-            }
-
-            ui->lineEdit_TimesPracticed->setText("");
-
-            ui->lineEdit_Deadline->setText("");
-
-            ui->lineEdit_InsertDate->setText("");
-            ui->lineEdit_1stPracticeDate->setText("");
-            ui->lineEdit_LastPracticeDate->setText("");
-            ui->lineEdit_PreviousScore->setText("");
-
-            ui->pushButton_WriteDB->setText("Insert");
-            ui->pushButton_Delete->setEnabled(false);
-
-            ui->listWidget_SearchResults->clearSelection();
-
-            currKUID = -1;
+            ui->plainTextEdit_Question->setPlainText("");
+            ui->plainTextEdit_Answer->setPlainText("");
         }
-        mySQL.close();
-    }
-    else
-    {
-        QMessageBox::warning(this, "Warning", "Cannot open the database:\n" + mySQL.lastError().text());
-        QApplication::quit();
-    }
 
+        ui->lineEdit_TimesPracticed->setText("");
+
+        ui->lineEdit_Deadline->setText("");
+
+        ui->lineEdit_InsertDate->setText("");
+        ui->lineEdit_1stPracticeDate->setText("");
+        ui->lineEdit_LastPracticeDate->setText("");
+        ui->lineEdit_PreviousScore->setText("");
+
+        ui->pushButton_WriteDB->setText("Insert");
+        ui->pushButton_Delete->setEnabled(false);
+
+        ui->listWidget_SearchResults->clearSelection();
+
+        currKUID = -1;
+    }
+    // db.close();
 }
 
 bool MainWindow::inputAvailabilityCheck()
@@ -186,9 +223,13 @@ bool MainWindow::inputAvailabilityCheck()
         return false;
     }
 
-    if (ui->lineEdit_Deadline->text().size() > 0 &&
-            !(QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd HH:mm:ss").isValid() || QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd").isValid())) {
-        QMessageBox::information(this, "Convert from QString to QDatetime failed", "Field [Deadline] must be null or a datetime string in the format of yyyy-MM-dd( HH:mm:ss)");
+    if (ui->lineEdit_Deadline->text().size() > 0
+        && !(QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd HH:mm:ss").isValid()
+             || QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd").isValid())) {
+        QMessageBox::information(this,
+                                 "Convert from QString to QDatetime failed",
+                                 "Field [Deadline] must be null or a datetime string in the format "
+                                 "of yyyy-MM-dd( HH:mm:ss)");
         return false;
     }
     return true;
@@ -204,7 +245,7 @@ void MainWindow::on_comboBox_Field_currentTextChanged(const QString &)
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 
-    setWindowTitle("Mamsds QJLT - DB Utility [" + ui->comboBox_Field->currentText()  + "]");
+    setWindowTitle("Qrammer - DB Utility [" + ui->comboBox_Field->currentText() + "]");
 }
 
 void MainWindow::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
@@ -226,7 +267,6 @@ void MainWindow::on_pushButton_NewKU_clicked()
 
 void MainWindow::on_lineEdit_Keyword_textChanged(const QString &)
 {
-
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text()
                           + ui->lineEdit_Keyword->text()
@@ -238,54 +278,83 @@ void MainWindow::on_pushButton_WriteDB_clicked()
     if (!inputAvailabilityCheck())
         return;
 
-    if (mySQL.open()) {
-        QSqlQuery query = QSqlQuery(mySQL);
-        if (currKUID == -1) {
-            auto stmt = QString(R"***(
+    if (!db.isOpen() && !db.open()) {
+        SPDLOG_ERROR(db.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.lastError().text());
+        return;
+    }
+
+    QSqlQuery query = QSqlQuery(db);
+    if (currKUID == -1) {
+        auto stmt = QString(R"***(
 INSERT INTO knowledge_units (
-    question, answer, times_practiced, previous_score, category, passing_score, deadline, insert_time, last_practice_time, client_name
+    question,
+    answer,
+    times_practiced,
+    previous_score,
+    category,
+    passing_score,
+    deadline,
+    insert_time,
+    last_practice_time,
+    client_name
 )
 VALUES (
-    :question, :answer, :times_practiced, :previous_score, :category, :passing_score, :deadline, DATETIME('Now', 'localtime'), :last_practice_time, :client_name
+    :question,
+    :answer,
+    :times_practiced,
+    :previous_score,
+    :category,
+    :passing_score,
+    :deadline,
+    DATETIME('Now', 'localtime'),
+    :last_practice_time,
+    :client_name
 )
 )***");
-            query.prepare(stmt);
-            query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
-
-            query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
-            query.bindValue(":times_practiced", 0);
-            query.bindValue(":previous_score", 0);
-            query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
-            query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-            query.bindValue(":deadline",
-                            (ui->lineEdit_Deadline->text().size() > 0
-                                 ? (ui->lineEdit_Deadline->text())
-                                 : QVariant(QVariant::String)));
-            query.bindValue(":last_practice_time", QVariant(QVariant::String));
-            query.bindValue(":client_name", "");
-        } else {
-            query.prepare(
-                "UPDATE knowledge_units SET question = :question, answer = :answer, passing_score "
-                "= :passing_score, category = :category, deadline = :deadline WHERE id = :id");
-
-            query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
-            query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
-            query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-            query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
-            query.bindValue(":deadline",
-                            (ui->lineEdit_Deadline->text().size() > 0
-                                 ? (ui->lineEdit_Deadline->text())
-                                 : QVariant(QVariant::String)));
-            query.bindValue(":id", currKUID);
+        if (!query.prepare(stmt)) {
+            SPDLOG_ERROR(query.lastError().text().toStdString());
+            QMessageBox::critical(this, "Error", query.lastError().text());
+            return;
         }
-        query.exec();
-        showSingleKU(-1);
+        query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
 
-        mySQL.close();
+        query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
+        query.bindValue(":times_practiced", 0);
+        query.bindValue(":previous_score", 0);
+        query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
+        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
+        query.bindValue(":deadline", ui->lineEdit_Deadline->text());
+        query.bindValue(":last_practice_time", "");
+        query.bindValue(":client_name", "");
     } else {
-        QMessageBox::warning(this, "Warning", "Cannot open the database:\n" + mySQL.lastError().text());
-        QApplication::quit();
+        auto stmt = R"***(
+UPDATE knowledge_units
+SET
+    question = :question,
+    answer = :answer,
+    passing_score = :passing_score,
+    category = :category,
+    deadline = :deadline
+WHERE id = :id)***";
+        if (!query.prepare(stmt)) {
+            SPDLOG_ERROR(query.lastError().text().toStdString());
+            QMessageBox::critical(this, "Error", query.lastError().text());
+            return;
+        }
+        query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
+        query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
+        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
+        query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
+        query.bindValue(":deadline", ui->lineEdit_Deadline->text());
+        query.bindValue(":id", currKUID);
     }
+    if (!query.exec()) {
+        SPDLOG_ERROR(query.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", query.lastError().text());
+    }
+    showSingleKU(-1);
+    // db.close();
 }
 
 void MainWindow::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
@@ -313,22 +382,37 @@ void MainWindow::on_listWidget_SearchResults_doubleClicked(const QModelIndex &)
 
 void MainWindow::on_pushButton_Delete_clicked()
 {
-    if (QMessageBox::question(this, "QJLT - KU Deletion", "Sure to remove the KU [" + QString::number(currKUID) + "]?", QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
-        if (mySQL.open()) {
-            QSqlQuery query = QSqlQuery(mySQL);
-            if (currKUID > 0) {
-                query.prepare("DELETE FROM knowledge_units WHERE id = :id");
-                query.bindValue(":id", currKUID);
-                query.exec();
-            }
+    if (QMessageBox::question(this,
+                              "QJLT - KU Deletion",
+                              "Sure to remove the KU [" + QString::number(currKUID) + "]?",
+                              QMessageBox::Yes | QMessageBox::No)
+        != QMessageBox::Yes)
+        return;
 
-            showSingleKU(-1);
-            mySQL.close();
+    if (!db.isOpen() && !db.open()) {
+        SPDLOG_ERROR(db.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.lastError().text());
+        return;
+    }
 
-            on_lineEdit_Keyword_textChanged(nullptr);
-        } else {
-            QMessageBox::warning(this, "Warning", "Cannot open the database:\n" + mySQL.lastError().text());
+    QSqlQuery query = QSqlQuery(db);
+    if (currKUID > 0) {
+        auto stmt = "DELETE FROM knowledge_units WHERE id = :id";
+        if (!query.prepare(stmt)) {
+            SPDLOG_ERROR(query.lastError().text().toStdString());
+            QMessageBox::critical(this, "Error", query.lastError().text());
+            return;
+        }
+        query.bindValue(":id", currKUID);
+        if (!query.exec()) {
+            SPDLOG_ERROR(query.lastError().text().toStdString());
+            QMessageBox::critical(this, "Error", query.lastError().text());
+            return;
         }
     }
-}
 
+    showSingleKU(-1);
+    // db.close();
+
+    on_lineEdit_Keyword_textChanged(nullptr);
+}

@@ -55,8 +55,6 @@ private:
 
     Ui::MainWindow *ui;
 
-    QSqlDatabase mySQL = QSqlDatabase::addDatabase("QSQLITE");
-
     QMap<QString, int> *searchResults;
 
     int currKUID;
