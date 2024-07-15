@@ -43,7 +43,21 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/global_variables.h
     src/qrammer/global_variables.cpp
 )
+
+
+qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
+    ./src/qrammer-db-util/main.cpp
+    ./src/qrammer-db-util/mainwindow.cpp
+    ./src/qrammer-db-util/mainwindow.h
+    ./src/qrammer-db-util/mainwindow.ui
+)
+
+
 target_compile_definitions(qrammer PRIVATE
+    QT_DEPRECATED_WARNINGS
+)
+
+target_compile_definitions(qrammer-db-util PRIVATE
     QT_DEPRECATED_WARNINGS
 )
 
@@ -55,4 +69,11 @@ target_link_libraries(qrammer PRIVATE
     Qt::Sql
     Qt::Widgets
     spdlog::spdlog
+)
+
+target_link_libraries(qrammer-db-util PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Gui
+    Qt::Sql
 )
