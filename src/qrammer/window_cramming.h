@@ -35,41 +35,23 @@ public:
 
 private slots:
     void on_pushButton_Next_clicked();
-
     void on_pushButton_Check_clicked();
-
     void on_comboBox_Score_currentTextChanged(const QString &);
-
     void actionResetTimer_triggered_cb();
-
     void actionBossMode_triggered_cb();
-
     void actionStartLearning_triggered_cb();
-
     void actionExit_triggered_cb();
-
     void showContextMenu_Question(const QPoint &pt);
-
     void showContextMenu_Answer(const QPoint &pt);
-
     void showContextMenu_Blank(const QPoint &pt);
-
     void tmrInterval();
-
     void on_pushButton_Skip_clicked();
-
     void on_textEdit_Question_textChanged();
-
     void on_textEdit_Info_textChanged();
-
     void on_pushButton_Skip_pressed();
-
     void on_pushButton_Check_pressed();
-
     void on_pushButton_Next_pressed();
-
     void on_pushButton_Switch_pressed();
-
     void on_textEdit_Draft_textChanged();
 
 protected:
@@ -115,18 +97,19 @@ private:
     void adaptTexteditHeight(QTextEdit *plaintextedit);
     void adaptTexteditLineSpacing(QTextEdit *textedit);
     void adaptSkipButton();
-    void finishLearning();
+    void finalizeCrammingSession();
     void initTrayMenu();
     void initContextMenu();
     void showContextMenu_Common(QTextEdit *edit, QMenu* menu, const QPoint &pt);
     void setWindowStyle();
     QString convertStringToFilename(QString name);
-    void handleTTS(bool isQuestion);
+    // void handleTTS(bool isQuestion);
     int pickCategoryforNewKU();
     bool downloadTTSFile(QString text);
     bool promptUserToRetryDBError(QString operationName, QString dbPath, QString lastError);
     void startInterval();
     void onAnswerShownCallback();
+    void fillinThenExecuteCommand(QString callbackName);
     void onKuLoadCallback();
     void preKuLoadGuiUpdate();
     void postKuLoadGuiUpdate();

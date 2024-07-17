@@ -12,6 +12,7 @@ find_package(spdlog CONFIG REQUIRED)
 qt_standard_project_setup()
 
 qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
+    ./resources/res.qrc
     src/qrammer/bmbox.cpp
     src/qrammer/bmbox.h
     src/qrammer/bmbox.ui
@@ -42,6 +43,13 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
 
     src/qrammer/global_variables.h
     src/qrammer/global_variables.cpp
+
+    src/common/logger.h
+    src/common/logger.cpp
+    src/common/utils.h src/common/utils.cpp
+    resources/qrammer-db-tool.ico
+    resources/qrammer-db-tool.ico
+    resources/res.qrc
 )
 
 
@@ -52,6 +60,9 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
     ./src/qrammer-db-util/mainwindow.ui
     ./src/qrammer-db-util/global_variables.h
     ./src/qrammer-db-util/global_variables.cpp
+
+    ./src/common/logger.h
+    ./src/common/logger.cpp
 )
 
 

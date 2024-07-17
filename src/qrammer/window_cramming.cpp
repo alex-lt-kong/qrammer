@@ -1,7 +1,7 @@
 #include "src/qrammer/window_cramming.h"
 #include "bmbox.h"
-#include "downloader.h"
 #include "msgbox.h"
+#include "src/common/utils.h"
 #include "src/qrammer/global_variables.h"
 #include "ui_window_cramming.h"
 
@@ -45,13 +45,18 @@ CrammingWindow::~CrammingWindow()
 
 void CrammingWindow::closeEvent(QCloseEvent *event)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this,
-                                                               "Qrammer",
-                                                               "Are you sure to quit?\n",
-                                                               QMessageBox::No | QMessageBox::Yes,
-                                                               QMessageBox::Yes);
+    if (remainingKUsToCram == 0) {
+        actionExit_triggered_cb();
+        event->accept();
+        return;
+    }
+    auto resBtn = QMessageBox::question(this,
+                                        "Qrammer",
+                                        "Are you sure to quit?\n",
+                                        QMessageBox::No | QMessageBox::Yes,
+                                        QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
-            event->ignore();
+        event->ignore();
     } else {
         actionExit_triggered_cb();
         event->accept();
@@ -139,6 +144,8 @@ void CrammingWindow::init(
         totalKU += availableCat->at(i)->number;
 
     remainingKUsToCram = totalKU;
+
+    fillinThenExecuteCommand("Init");
 }
 
 void CrammingWindow::on_pushButton_Next_clicked()
@@ -202,17 +209,7 @@ void CrammingWindow::tmrInterval()
 
 void CrammingWindow::onAnswerShownCallback()
 {
-    QString cmd = settings.value("Callbacks/OnAnswerShown", "").toString();
-    if (cmd.length() > 0) {
-        cmd = cmd.replace("{Question}", cku.Question)
-                  .replace("{Answer}", cku.Answer)
-                  .replace("{Category}", cku.Category)
-                  .replace("{ID}", QString::number(cku.ID));
-        SPDLOG_INFO("onAnswerShownCallback command to execute: {}", cmd.toStdString());
-        system(cmd.toStdString().c_str());
-    } else {
-        SPDLOG_INFO("onAnswerShownCallback is empty");
-    }
+    fillinThenExecuteCommand("OnAnswerShown");
 }
 
 void CrammingWindow::on_pushButton_Check_clicked()
@@ -227,7 +224,7 @@ void CrammingWindow::on_pushButton_Check_clicked()
     if (ui->pushButton_Switch->text() == "Answer") {
         on_pushButton_Switch_pressed();
     }
-    handleTTS(false);
+    // handleTTS(false);
     onAnswerShownCallback();
 }
 
@@ -317,8 +314,7 @@ WHERE id = :id
             if (!query.exec()) {
                 if (promptUserToRetryDBError("open database",
                                              db.databaseName(),
-                                             query.lastError().databaseText() + "\n"
-                                                 + query.lastError().driverText()))
+                                             query.lastError().text()))
                     continue;
                 else break; // Need to consider whether this break is needed.
             }
@@ -334,7 +330,8 @@ WHERE id = :id
         if (availableCategory->at(i)->number > 0)
             return true;
 
-    finishLearning();
+    QApplication::quit();
+    // finishLearning();
     return false;
 }
 
@@ -472,7 +469,7 @@ void CrammingWindow::postKuLoadGuiUpdate()
 
     ui->textEdit_Draft->setFocus();
 
-    handleTTS(true);
+    // handleTTS(true);
 
     this->setUpdatesEnabled(true);
     this->repaint(); // Without repaint, the whole window will not be painted at all.
@@ -480,20 +477,32 @@ void CrammingWindow::postKuLoadGuiUpdate()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 }
 
-void CrammingWindow::onKuLoadCallback()
+void CrammingWindow::fillinThenExecuteCommand(QString callbackName)
 {
-    QString cmd = settings.value("Callbacks/OnKULoad", "").toString();
-    if (cmd.length() > 0) {
-        cmd = cmd.replace("{Question}", cku.Question)
-                  .replace("{Answer}", cku.Answer)
-                  .replace("{Category}", cku.Category)
-                  .replace("{ID}", QString::number(cku.ID));
-        SPDLOG_INFO("onKuLoadCallback command to execute: {}", cmd.toStdString());
-        system(cmd.toStdString().c_str());
+    QString cmdTemplate = settings.value(QString("Callbacks/%1").arg(callbackName), "").toString();
+    if (cmdTemplate.length() > 0) {
+        auto cmd = cmdTemplate.replace("{callbackName}", callbackName)
+                       .replace("{Question}", cku.Question)
+                       .replace("{Answer}", cku.Answer)
+                       .replace("{Category}", cku.Category)
+                       .replace("{ClientName}", cku.ClientName)
+                       .replace("{ID}", QString::number(cku.ID))
+                       .replace("{TimesPracticed}", QString::number(cku.TimesPracticed));
+        SPDLOG_INFO("Callback {} triggered, command to execute: {}",
+                    callbackName.toStdString(),
+                    cmd.toStdString());
+        execExternalProgramAsync(cmd.toStdString());
+        // system(cmd.toStdString().c_str());
     } else {
-        SPDLOG_INFO("onKuLoadCallback is empty");
+        SPDLOG_INFO("Callback {}'s command is empty", callbackName.toStdString());
     }
 }
+
+void CrammingWindow::onKuLoadCallback()
+{
+    fillinThenExecuteCommand("OnKULoad");
+}
+
 void CrammingWindow::initNextKU()
 {
     preKuLoadGuiUpdate();
@@ -714,7 +723,7 @@ ORDER BY RANDOM() LIMIT 1";
     if (!query.exec()) {
         if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
                                      db.databaseName(),
-                                     db.lastError().text())) {
+                                     query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -838,7 +847,7 @@ void CrammingWindow::adaptSkipButton()
     }
 }
 
-void CrammingWindow::finishLearning()
+void CrammingWindow::finalizeCrammingSession()
 {
     QString temp;
     for (int i = 0; i < availableCategory->count(); i++)
@@ -850,13 +859,15 @@ void CrammingWindow::finishLearning()
                                        QMessageBox::Ok,
                                        this);
 
-    msg->setFont(QFont("Mono", 1));
+    QFont font("Monospace");
+    font.setStyleHint(QFont::TypeWriter);
+    msg->setFont(font);
     msg->exec();
 
-    trayIcon->hide();       // The Icon should be hide here since the program is quitted by the next line.
+    trayIcon->hide(); // The Icon should be hide here since the program is quitted by the next line.
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 
-    //QMessageBox::information(this, "Result", temp);
+    fillinThenExecuteCommand("OnCrammingFinished");
     QApplication::quit();
 }
 
@@ -1048,6 +1059,7 @@ QString CrammingWindow::convertStringToFilename(QString name)
     return output;
 }
 
+/*
 void CrammingWindow::handleTTS(bool isQuestion)
 {
     QString sanitizedFilepath, originalText, sanitizedFilename;
@@ -1100,6 +1112,7 @@ void CrammingWindow::handleTTS(bool isQuestion)
     // ttsDownloader->deleteLater();
     //Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
 }
+*/
 
 void CrammingWindow::actionResetTimer_triggered_cb()
 {
@@ -1147,7 +1160,7 @@ void CrammingWindow::actionExit_triggered_cb()
     if (bossMode) {
         return;
     } else {
-        finishLearning();
+        finalizeCrammingSession();
         trayIcon->hide();       // This line alone won't work since finishLearning() would  quit the program before this line is executed
         QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
         QApplication::quit();

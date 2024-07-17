@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qrammer.ico</file>
+        <file>qrammer-db-tool.ico</file>
+    </qresource>
+</RCC>

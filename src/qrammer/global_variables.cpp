@@ -4,5 +4,6 @@
 
 QString databaseName;
 QSqlDatabase db;
-QSettings settings(QCoreApplication::QCoreApplication::applicationDirPath() + "./../config.ini",
-                   QSettings::IniFormat);
+QSettings settings = QSettings(QCoreApplication::QCoreApplication::applicationDirPath()
+                                   + "./../config.ini",
+                               QSettings::IniFormat);

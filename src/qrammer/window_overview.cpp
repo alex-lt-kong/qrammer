@@ -12,7 +12,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-
     initPlatformSpecificSettings();
     db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     db.setDatabaseName(databaseName);
@@ -201,6 +200,9 @@ void MainWindow::initStatistics()
         allCats->at(i)->snapshot = new Snapshot(allCats->at(i)->name);
         ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
     }
+    QFont font("Monospace");
+    font.setStyleHint(QFont::TypeWriter);
+    ui->plainTextEdit_Statistics->setFont(font);
 
     /*
     if (QGuiApplication::platformName() == "windows" || QGuiApplication::platformName() == "xcb") {
@@ -237,7 +239,7 @@ void MainWindow::on_pushButton_Start_clicked()
         return;
     }
 
-    CrammingWindow *pW = new CrammingWindow(nullptr);
+    CrammingWindow *cW = new CrammingWindow(nullptr);
 
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
@@ -246,12 +248,15 @@ void MainWindow::on_pushButton_Start_clicked()
         t2 = tt.at(1).toInt();
     }
 
-    pW->init(allCats, settings.value("NKI", 50).toInt(), t1, t2, settings.value("WindowStyle", "1111").toInt());
-    pW->show();
-    pW->initNextKU();
-
-    this->hide();
     ui->pushButton_Start->setEnabled(false);
+    cW->init(allCats,
+             settings.value("NKI", 50).toInt(),
+             t1,
+             t2,
+             settings.value("WindowStyle", "1111").toInt());
+    cW->show();
+    cW->initNextKU();
+    this->hide();
 }
 
 void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
