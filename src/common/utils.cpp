@@ -3,7 +3,9 @@
 #include <spdlog/spdlog.h>
 
 #include <thread>
+#ifdef WIN32
 #include <windows.h>
+#endif
 
 using namespace std;
 

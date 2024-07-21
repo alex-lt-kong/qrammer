@@ -11,11 +11,11 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>QJLT - Break Reminder</string>
+   <string>Qrammer - Break Reminder</string>
   </property>
   <property name="windowIcon">
-   <iconset>
-    <normaloff>:/Main.ico</normaloff>:/Main.ico</iconset>
+   <iconset resource="../../resources/res.qrc">
+    <normaloff>:/qrammer.ico</normaloff>:/qrammer.ico</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -64,6 +64,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="../../resources/res.qrc"/>
+ </resources>
  <connections/>
 </ui>

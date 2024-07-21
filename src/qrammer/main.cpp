@@ -1,4 +1,5 @@
 #include "../common/logger.h"
+#include "global_variables.h"
 
 #include "window_overview.h"
 
@@ -10,7 +11,7 @@ int main(int argc, char *argv[])
 {
     init_logger();
     SPDLOG_INFO("Qrammer started");
-    // QSqlDatabase::addDatabase("QSQLITE");
+    SPDLOG_INFO("Settings are stored at: {}", settings.fileName().toStdString());
     QApplication a(argc, argv);
     MainWindow w;
     w.showMaximized();

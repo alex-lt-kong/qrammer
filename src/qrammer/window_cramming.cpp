@@ -63,17 +63,6 @@ void CrammingWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-void CrammingWindow::showEvent(QShowEvent *event)
-{
-    if (isAndroid) { // This function is needed for android, otherwise the first KU will not be loaded correctly.
-      // The implementation is copied from: https://stackoverflow.com/questions/3752742/how-do-i-create-a-pause-wait-function-using-qt
-        QTime dieTime= QTime::currentTime().addMSecs(500);
-        while (QTime::currentTime() < dieTime)
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        setWindowStyle();
-    }
-}
-
 void CrammingWindow::initUI()
 {
     ui->lineEdit_PassingScore->setValidator( new QIntValidator(0, 99, this));
@@ -85,7 +74,7 @@ void CrammingWindow::initUI()
     QFontMetrics metrics(ui->textEdit_Answer->font());
     ui->textEdit_Question->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
     ui->textEdit_Answer->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
-    ui->textEdit_Draft->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
+    ui->textEdit_Response->setTabStopDistance(tabStop * metrics.horizontalAdvance(' '));
 
     adaptTexteditHeight(ui->textEdit_Info);
 }
@@ -96,9 +85,7 @@ void CrammingWindow::initPlatformSpecificSettings()
         isAndroid = true;
         parentDir = "/sdcard/Qrammer";
 
-        ui->pushButton_Switch->setVisible(true);
-
-        ui->textEdit_Draft->setVisible(false);
+        ui->textEdit_Response->setVisible(false);
         ui->lineEdit_PassingScore->setVisible(false);
 
         ui->progressBar_Learning->setVisible(false);
@@ -114,12 +101,8 @@ void CrammingWindow::initPlatformSpecificSettings()
         tmpDir.cdUp();
         tmpDir.cdUp();
         parentDir = tmpDir.path();
-
-        ui->pushButton_Switch->setVisible(false);
         ui->pushButton_Skip->setVisible(false);
     }
-
-    ui->textEdit_DraftAndroid->setVisible(false);   //No matter if program is running on Android, this textEdit should be hide by default.
 
     if (!isAndroid) {
         QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
@@ -130,11 +113,14 @@ void CrammingWindow::initPlatformSpecificSettings()
     }
 }
 
-void CrammingWindow::init(
-    QList<CategoryMetaData *> *availableCat, int NKI, int interval, int number, int windowStyle)
+void CrammingWindow::init(QList<CategoryMetaData *> *availableCat,
+                          uint32_t newKuCoeff,
+                          int interval,
+                          int number,
+                          int windowStyle)
 {
     this->availableCategory = availableCat;
-    this->NKI = NKI;
+    this->newKuCoeff = newKuCoeff;
     this->interval = interval;
     this->number = number;
     this->windowStyle = windowStyle;
@@ -154,6 +140,7 @@ void CrammingWindow::on_pushButton_Next_clicked()
         return;
     // This is to ensure that the user will not click the button twice.
     ui->pushButton_Next->setEnabled(false);
+    ui->pushButton_ChooseImage->setEnabled(false);
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 
@@ -182,7 +169,7 @@ void CrammingWindow::tmrInterval()
         trayIcon->setToolTip("BM activated");
     } else {
         secDelayed++;
-        auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: % 3 sec")
+        auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: %3 sec")
                            .arg(QString::number(totalKU - remainingKUsToCram),
                                 QString::number(totalKU),
                                 QString::number(interval * 60 - secDelayed));
@@ -218,13 +205,20 @@ void CrammingWindow::on_pushButton_Check_clicked()
         return;
 
     ui->textEdit_Answer->setPlainText(cku.Answer);
+    QPixmap answerImage;
+    if (cku.AnswerImageBytes.size() > 0 && answerImage.loadFromData(cku.AnswerImageBytes)) {
+        auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
+        auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
+        answerImage = answerImage.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        ui->label_AnswerImage->setPixmap(answerImage);
+    } else {
+        ui->label_AnswerImage->setText("[Empty]");
+    }
+    ui->pushButton_ChooseImage->setEnabled(true);
     adaptTexteditLineSpacing(ui->textEdit_Answer);
     ui->pushButton_Check->setEnabled(false);
     ui->comboBox_Score->setEnabled(true);
-    if (ui->pushButton_Switch->text() == "Answer") {
-        on_pushButton_Switch_pressed();
-    }
-    // handleTTS(false);
+
     onAnswerShownCallback();
 }
 
@@ -272,7 +266,8 @@ SET
     passing_score = :passing_score,
     deadline = %1,
     client_name = :client_name,
-    time_used = time_used + :time_used
+    time_used = time_used + :time_used,
+    answer_image = :answer_image
 WHERE id = :id
 )**")
                         .arg(hasDeadline ? ("DATETIME('Now', 'localtime', '"
@@ -297,6 +292,15 @@ WHERE id = :id
                             ? 300
                             : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
         query.bindValue(":id", cku.ID);
+        if (!ui->label_AnswerImage->pixmap().isNull()) {
+            QByteArray bArray;
+            QBuffer buffer(&bArray);
+            buffer.open(QIODevice::WriteOnly);
+            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
+            query.bindValue(":answer_image", bArray);
+        } else {
+            query.bindValue(":answer_image", QByteArray());
+        }
 
         if (!query.exec()) {
             if (promptUserToRetryDBError(QString("query.exec() the following statement: 1%")
@@ -342,9 +346,8 @@ void CrammingWindow::preKuLoadGuiUpdate()
     setWindowStyle(); // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
 
     ui->textEdit_Answer->clear();
-    ui->textEdit_Draft->clear();
-    ui->textEdit_DraftAndroid->clear();
-
+    ui->textEdit_Response->clear();
+    ui->label_AnswerImage->setText("[Empty]");
     if (!isAndroid)
         ui->comboBox_Score->clearEditText();
     else
@@ -464,13 +467,21 @@ void CrammingWindow::postKuLoadGuiUpdate()
 
     adaptTexteditHeight(ui->textEdit_Question);
     adaptTexteditHeight(ui->textEdit_Info);
-    adaptTexteditHeight(ui->textEdit_Draft);
+    adaptTexteditHeight(ui->textEdit_Response);
     setWindowStyle(); // To be safe, setWindowStyle could be called both at the beginning and the end of this function.
 
-    ui->textEdit_Draft->setFocus();
+    ui->textEdit_Response->setFocus();
 
-    // handleTTS(true);
-
+    /*
+    QPixmap answerImage;
+    if (answerImage.loadFromData(cku.AnswerImageBytes)) {
+        auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
+        auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
+        answerImage = answerImage.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        ui->label_AnswerImage->setPixmap(answerImage);
+    }
+    */
+    ui->label_AnswerImage->setText("[Hidden]");
     this->setUpdatesEnabled(true);
     this->repaint(); // Without repaint, the whole window will not be painted at all.
 
@@ -530,13 +541,15 @@ int CrammingWindow::pickCategoryforNewKU()
 void CrammingWindow::loadNewKU(int recursion_depth)
 {
     auto max_retry = 100;
-    QString msg = QString("Loading new knowledge unit (recursion_depth: %1, max_depth: %2) ")
-                      .arg(recursion_depth, max_retry);
+    SPDLOG_INFO("Loading new knowledge unit (recursion_depth: {}, max_depth: {}) ",
+                recursion_depth,
+                max_retry);
     if (recursion_depth > max_retry) {
         auto errMsg = QString("max_retry (%1) reached, the program must exit").arg(max_retry);
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Critical", errMsg);
-        throw std::runtime_error(errMsg.toStdString());
+        QApplication::exit();
+        return;
     }
 
     try {
@@ -550,7 +563,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     //
     auto currCat = availableCategory->at(currCatIndex)->name;
 
-    msg = QString("Remaining KUs to be crammed by category: ");
+    auto msg = QString("Remaining KUs to be crammed by category: ");
     for (int i = 0; i < availableCategory->length(); i++) {
         msg += QString("%1: %2, ")
                    .arg(availableCategory->at(i)->name,
@@ -560,15 +573,16 @@ void CrammingWindow::loadNewKU(int recursion_depth)
 
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     //db.setDatabaseName(databaseName);
-    if (!db.open()) {
+    if (!db.isOpen() && !db.open()) {
         if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(db.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
     QSqlQuery query = QSqlQuery(db);
-    auto stmt = R"***(
+    QString stmt = R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
@@ -583,23 +597,27 @@ WHERE
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
     query.bindValue(":category", currCat);
 
     int dueNumByCat = 0;
     if (!query.exec()) {
-        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n%1").arg(stmt),
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+        if (promptUserToRetryDBError(
+                QString("query.exec() the following statement to extract dueNumByCat:\n%1").arg(stmt),
+                db.databaseName(),
+                query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
     if (query.next()) {
         dueNumByCat = query.value(0).toInt();
         SPDLOG_INFO("dueNum of category [{}]: {}", currCat.toStdString(), dueNumByCat);
+        query.finish();
     } else {
         if (promptUserToRetryDBError("Extracting dueNumByCat from query.next()",
                                      db.databaseName(),
@@ -607,7 +625,8 @@ WHERE
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
 
     stmt = R"***(
@@ -622,22 +641,26 @@ WHERE category = :category AND is_shelved = 0
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
     query.bindValue(":category", currCat);
 
     if (!query.exec()) {
-        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n%1").arg(stmt),
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+        if (promptUserToRetryDBError(
+                QString("query.exec() the following statement to extract TotalNum:\n%1").arg(stmt),
+                db.databaseName(),
+                query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
     int TotalNum;
     if (query.next()) {
         TotalNum = query.value(0).toInt();
+        query.finish();
     } else {
         if (promptUserToRetryDBError("Extracting TotalNum from query.next()",
                                      db.databaseName(),
@@ -645,7 +668,8 @@ WHERE category = :category AND is_shelved = 0
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
 
     double urgencyCoeff = 1
@@ -656,14 +680,26 @@ WHERE category = :category AND is_shelved = 0
                 TotalNum,
                 dueNumByCat,
                 urgencyCoeff);
-    QString columns
-        = "id, question, answer, passing_score, previous_score, times_practiced, insert_time, "
-          "first_practice_time, last_practice_time, deadline, client_name, category, time_used";
+    const auto columns = QString(R"***(
+id,
+question,
+answer,
+passing_score,
+previous_score,
+times_practiced,
+insert_time,
+first_practice_time,
+last_practice_time,
+deadline,
+client_name,
+category,
+time_used,
+answer_image)***");
     double r = ranGen.generateDouble();
     SPDLOG_INFO("A random number in [0, 1): {}", r);
     if (r < urgencyCoeff) {
         SPDLOG_INFO("SELECTing an urgent unit");
-        auto stmt = QString(R"***(
+        stmt = QString(R"***(
 SELECT %1
 FROM knowledge_units
 WHERE
@@ -673,13 +709,13 @@ WHERE
 ORDER BY RANDOM()
 LIMIT 1
 )***")
-                        .arg(columns);
+                   .arg(columns);
         query.prepare(stmt);
-        query.bindValue(":category", availableCategory->at(currCatIndex)->name);
+        query.bindValue(":category", currCat);
     } else {
-        if (ranGen.generate() % 100 <= NKI) {
+        if (ranGen.generate() % 100 <= newKuCoeff) {
             SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
-            auto stmt = QString(R"***(
+            stmt = QString(R"***(
 SELECT %1
 FROM knowledge_units
 WHERE
@@ -689,76 +725,81 @@ WHERE
 ORDER BY RANDOM()
 LIMIT 1
 )***")
-                            .arg(columns);
+                       .arg(columns);
             query.prepare(stmt);
-            query.bindValue(":category", availableCategory->at(currCatIndex)->name);
+            query.bindValue(":category", currCat);
         } else {
             SPDLOG_INFO("Randomly SELECTing a unit");
-            auto stmt = QString(R"***(
-SELECT *
-FROM
-(
-    SELECT %1
-    FROM  knowledge_units
-    WHERE category = :category
-    ORDER BY (previous_score - passing_score) ASC
-    LIMIT
-    (
-        SELECT ABS(RANDOM()) %
-        (
-            SELECT COUNT(id) + 1
-            FROM knowledge_units
-            WHERE category = :category AND is_shelved = 0
-        )
-    )
-)
-ORDER BY RANDOM() LIMIT 1";
+            stmt = QString(R"***(
+SELECT %1
+FROM knowledge_units
+WHERE
+    category = :category AND
+    is_shelved = 0
+ORDER BY RANDOM()
+LIMIT 1;
 )***")
-                            .arg(columns);
-            query.prepare(stmt);
-            query.bindValue(":category", availableCategory->at(currCatIndex)->name);
+                       .arg(columns);
+            if (!query.prepare(stmt)) {
+                if (promptUserToRetryDBError(
+                        QString(
+                            "query.prepare() the following stmt to load a new KnowledgeUnit:\n%1")
+                            .arg(stmt),
+                        db.databaseName(),
+                        query.lastError().text())) {
+                    loadNewKU(++recursion_depth);
+                    return;
+                }
+                QApplication::exit();
+                return;
+            }
+            query.bindValue(":category", currCat);
         }
     }
 
     if (!query.exec()) {
-        if (promptUserToRetryDBError(QString("query.exec() the following statement:\n").arg(stmt),
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+        if (promptUserToRetryDBError(
+                QString("query.exec() the following query to load a new KnowledgeUnit:\n%1")
+                    .arg(query.lastQuery()),
+                db.databaseName(),
+                query.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        QApplication::exit();
+        return;
     }
-
     if (query.first()) {
-        int i = 0;
-        cku.ID = query.value(i++).toInt();
-        cku.Question = query.value(i++).toString();
-        cku.Answer = query.value(i++).toString();
-        cku.PassingScore = query.value(i++).toDouble();
-        cku.PreviousScore = query.value(i++).toDouble();
-        cku.TimesPracticed = query.value(i++).toInt();
-        cku.InsertTime = query.value(i++).toDateTime();
-        cku.FirstPracticeTime = query.value(i++).toDateTime();
-        cku.LastPracticeTime = query.value(i++).toDateTime();
-        cku.Deadline = query.value(i++).toDateTime();
-        cku.ClientName = query.value(i++).toString();
-        cku.Category = query.value(i++).toString();
-        cku.SecSpent = query.value(i++).toInt();
+        int idx = 0;
+        cku.ID = query.value(idx++).toInt();
+        cku.Question = query.value(idx++).toString();
+        cku.Answer = query.value(idx++).toString();
+        cku.PassingScore = query.value(idx++).toDouble();
+        cku.PreviousScore = query.value(idx++).toDouble();
+        cku.TimesPracticed = query.value(idx++).toInt();
+        cku.InsertTime = query.value(idx++).toDateTime();
+        cku.FirstPracticeTime = query.value(idx++).toDateTime();
+        cku.LastPracticeTime = query.value(idx++).toDateTime();
+        cku.Deadline = query.value(idx++).toDateTime();
+        cku.ClientName = query.value(idx++).toString();
+        cku.Category = query.value(idx++).toString();
+        cku.SecSpent = query.value(idx++).toInt();
+        cku.AnswerImageBytes = query.value(idx++).toByteArray();
         query.finish();
     } else {
-        if (promptUserToRetryDBError("Extracting next KU from query.first()",
-                                     db.databaseName(),
-                                     db.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        throw std::runtime_error(query.lastError().text().toStdString());
+        // if (promptUserToRetryDBError("Extracting next KU from query.first()",
+        //                             db.databaseName(),
+        //                            query.lastError().text())) {
+        loadNewKU(++recursion_depth);
+        //   return;
+        // }
+        //QApplication::exit();
+        //return;
     }
 
     ui->textEdit_Question->setPlainText(cku.Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
-    adaptTexteditLineSpacing(ui->textEdit_Draft);
+    adaptTexteditLineSpacing(ui->textEdit_Response);
 }
 
 void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
@@ -934,8 +975,8 @@ void CrammingWindow::initContextMenu()
             SIGNAL(customContextMenuRequested(QPoint)),
             this,
             SLOT(showContextMenu_Answer(QPoint)));
-    ui->textEdit_Draft->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->textEdit_Draft,
+    ui->textEdit_Response->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->textEdit_Response,
             SIGNAL(customContextMenuRequested(QPoint)),
             this,
             SLOT(showContextMenu_Blank(QPoint)));
@@ -984,7 +1025,7 @@ void CrammingWindow::showContextMenu_Answer(const QPoint &pt)
 
 void CrammingWindow::showContextMenu_Blank(const QPoint &pt)
 {
-    showContextMenu_Common(ui->textEdit_Draft, menuBlank, pt);
+    showContextMenu_Common(ui->textEdit_Response, menuBlank, pt);
 }
 
 void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const QPoint &pt)
@@ -1171,7 +1212,7 @@ void CrammingWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     adaptTexteditHeight(ui->textEdit_Question);
-    adaptTexteditHeight(ui->textEdit_Draft);
+    adaptTexteditHeight(ui->textEdit_Response);
     adaptTexteditHeight(ui->textEdit_Info);
 
     adaptSkipButton();
@@ -1226,15 +1267,6 @@ void CrammingWindow::on_textEdit_Question_textChanged()
     setWindowStyle();
 }
 
-void CrammingWindow::on_textEdit_Draft_textChanged()
-{
-  //  return;
-   // if (isAndroid && ui->textEdit_Draft->isVisible())
-    //    return;
-    adaptTexteditHeight(ui->textEdit_Draft);
-    setWindowStyle();
-}
-
 void CrammingWindow::on_textEdit_Info_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Info);
@@ -1278,17 +1310,41 @@ Error message: %3)*")
     }
 }
 
-void CrammingWindow::on_pushButton_Switch_pressed()
+void CrammingWindow::on_pushButton_ChooseImage_clicked()
 {
-    if (ui->textEdit_DraftAndroid->isVisible()) {
-        ui->textEdit_Draft->setVisible(false);
-        ui->textEdit_DraftAndroid->setVisible(false);
-        ui->textEdit_Answer->setVisible(true);
-        ui->pushButton_Switch->setText("Draft");
+    auto fileContentReady = [this](const QString &fileName, const QByteArray &fileContent) {
+        if (fileName.isEmpty()) {
+            SPDLOG_INFO("No file is selected");
+        } else {
+            SPDLOG_INFO("fileName: {}", fileName.toStdString());
+            SPDLOG_INFO("fileContent.size(): {} bytes", fileContent.size());
+            QPixmap answerImage;
+            // cku.AnswerImageBytes = fileContent;
+            if (answerImage.loadFromData(fileContent)) {
+                auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
+                auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
+                answerImage = answerImage.scaled(QSize(w, h),
+                                                 Qt::KeepAspectRatio,
+                                                 Qt::SmoothTransformation);
+                ui->label_AnswerImage->setPixmap(answerImage);
+            }
+        }
+    };
+    QFileDialog::getOpenFileContent("Images (*.png *.xpm *.jpg)", fileContentReady);
+    return;
+    auto fileName = QFileDialog::getOpenFileName(this,
+                                                 "Select an image...",
+                                                 "",
+                                                 "Image Files (*.png *.jpg *.bmp)");
+    if (fileName.isEmpty()) {
+        SPDLOG_INFO("No file is selected");
     } else {
-        ui->textEdit_Draft->setVisible(false);
-        ui->textEdit_DraftAndroid->setVisible(true);
-        ui->textEdit_Answer->setVisible(false);
-        ui->pushButton_Switch->setText("Answer");
+        SPDLOG_INFO("fileName: {}", fileName.toStdString());
     }
+}
+
+void CrammingWindow::on_textEdit_Response_textChanged()
+{
+    adaptTexteditHeight(ui->textEdit_Response);
+    setWindowStyle();
 }

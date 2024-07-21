@@ -185,10 +185,10 @@ ORDER BY last_practice_time DESC
 void MainWindow::initSettings()
 {
     ui->lineEdit_FontSize->setValidator(new QIntValidator(0, 50, this));
-    ui->lineEdit_NKI->setValidator(new QIntValidator(0, 99, this));
+    ui->lineEdit_NewKUCoeff->setValidator(new QIntValidator(0, 99, this));
     ui->lineEdit_ClientName->setText(settings.value("ClientName", "Qrammer-Notset").toString());
     ui->lineEdit_FontSize->setText(QString::number(settings.value("FontSize", 10).toInt()));
-    ui->lineEdit_NKI->setText(QString::number(settings.value("NKI", 50).toInt()));
+    ui->lineEdit_NewKUCoeff->setText(QString::number(settings.value("NewKUCoeff", 50).toInt()));
     ui->lineEdit_IntervalNum->setText(settings.value("Interval", "0, 0").toString());
     ui->lineEdit_WindowStyle->setText(settings.value("WindowStyle", "1111").toString());
 }
@@ -250,7 +250,7 @@ void MainWindow::on_pushButton_Start_clicked()
 
     ui->pushButton_Start->setEnabled(false);
     cW->init(allCats,
-             settings.value("NKI", 50).toInt(),
+             settings.value("NewKUCoeff", 50).toUInt(),
              t1,
              t2,
              settings.value("WindowStyle", "1111").toInt());
@@ -270,7 +270,7 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 
 void MainWindow::on_lineEdit_NKI_textChanged(const QString &)
 {
-    settings.setValue("NKI", ui->lineEdit_NKI->text());
+    settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
     initSettings();
 }
 
@@ -299,8 +299,8 @@ void MainWindow::initPlatformSpecificSettings()
     if (QGuiApplication::platformName() == "android") {
         databaseName = "/sdcard/qrammer/db/database.sqlite";
 
-        ui->label_NKI->setVisible(false);
-        ui->lineEdit_NKI->setVisible(false);
+        ui->label_NewKUCoeff->setVisible(false);
+        ui->lineEdit_NewKUCoeff->setVisible(false);
         ui->label_Fontsize->setVisible(false);
         ui->lineEdit_FontSize->setVisible(false);
         ui->label_IntervalNum->setVisible(false);
@@ -312,7 +312,7 @@ void MainWindow::initPlatformSpecificSettings()
 
         settings.setValue("FontSize", 12);
         settings.setValue("Interval", "0,0");
-        settings.setValue("NKI", 10);
+        settings.setValue("NewKUCoeff", 10);
         settings.setValue("WindowStyle", 1111);
         settings.sync();
 

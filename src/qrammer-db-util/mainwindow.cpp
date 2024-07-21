@@ -1,6 +1,9 @@
 ﻿#include "mainwindow.h"
+#include "src/common/utils.h"
 #include "src/qrammer-db-util/global_variables.h"
 #include "src/qrammer-db-util/ui_mainwindow.h"
+
+#include <QFileDialog>
 #include <spdlog/spdlog.h>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -133,9 +136,20 @@ void MainWindow::showSingleKU(int kuID)
         QMessageBox::critical(this, "Error", db.lastError().text());
         return;
     }
-    QSqlQuery query = QSqlQuery(db);
-    QString columns = "id, question, answer, passing_score, previous_score, times_practiced, "
-                      "insert_time, first_practice_time, last_practice_time, deadline, category";
+    auto query = QSqlQuery(db);
+    auto columns = QString(R"***(
+id,
+question,
+answer,
+passing_score,
+previous_score,
+times_practiced,
+insert_time,
+first_practice_time,
+last_practice_time,
+deadline,
+category,
+answer_image)***");
     auto stmt = QString("SELECT %1 FROM knowledge_units WHERE id = :id").arg(columns);
     if (!query.prepare(stmt)) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
@@ -161,6 +175,20 @@ void MainWindow::showSingleKU(int kuID)
         ui->lineEdit_1stPracticeDate->setText(query.value(7).toDateTime().toString("yyyy-MM-dd"));
         ui->lineEdit_LastPracticeDate->setText(query.value(8).toDateTime().toString("yyyy-MM-dd"));
         ui->lineEdit_PreviousScore->setText(QString::number(query.value(4).toInt()));
+
+        auto imageBytes = query.value(11).toByteArray();
+        if (imageBytes.size() > 0) {
+            QPixmap answerImage;
+            if (answerImage.loadFromData(imageBytes)) {
+                ui->label_AnswerImage->setPixmap(answerImage);
+            } else {
+                ui->label_AnswerImage->setText("[ERROR]");
+                SPDLOG_WARN("KnowledgeUnit ID={} appears to have image data, but it is invalid",
+                            ui->lineEdit_KUID->text().toStdString());
+            }
+        } else {
+            ui->label_AnswerImage->setText("[Empty]");
+        }
 
         ui->pushButton_WriteDB->setText("Update");
         ui->pushButton_Delete->setEnabled(true);
@@ -297,7 +325,8 @@ INSERT INTO knowledge_units (
     deadline,
     insert_time,
     last_practice_time,
-    client_name
+    client_name,
+    answer_image
 )
 VALUES (
     :question,
@@ -309,7 +338,8 @@ VALUES (
     :deadline,
     DATETIME('Now', 'localtime'),
     :last_practice_time,
-    :client_name
+    :client_name,
+    :answer_image
 )
 )***");
         if (!query.prepare(stmt)) {
@@ -327,6 +357,15 @@ VALUES (
         query.bindValue(":deadline", ui->lineEdit_Deadline->text());
         query.bindValue(":last_practice_time", "");
         query.bindValue(":client_name", "");
+        if (!ui->label_AnswerImage->pixmap().isNull()) {
+            QByteArray bArray;
+            QBuffer buffer(&bArray);
+            buffer.open(QIODevice::WriteOnly);
+            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
+            query.bindValue(":answer_image", bArray);
+        } else {
+            query.bindValue(":answer_image", QByteArray());
+        }
     } else {
         auto stmt = R"***(
 UPDATE knowledge_units
@@ -335,7 +374,8 @@ SET
     answer = :answer,
     passing_score = :passing_score,
     category = :category,
-    deadline = :deadline
+    deadline = :deadline,
+    answer_image = :answer_image
 WHERE id = :id)***";
         if (!query.prepare(stmt)) {
             SPDLOG_ERROR(query.lastError().text().toStdString());
@@ -348,6 +388,15 @@ WHERE id = :id)***";
         query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
         query.bindValue(":deadline", ui->lineEdit_Deadline->text());
         query.bindValue(":id", currKUID);
+        if (!ui->label_AnswerImage->pixmap().isNull()) {
+            QByteArray bArray;
+            QBuffer buffer(&bArray);
+            buffer.open(QIODevice::WriteOnly);
+            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
+            query.bindValue(":answer_image", bArray);
+        } else {
+            query.bindValue(":answer_image", QByteArray());
+        }
     }
     if (!query.exec()) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
@@ -415,4 +464,36 @@ void MainWindow::on_pushButton_Delete_clicked()
     // db.close();
 
     on_lineEdit_Keyword_textChanged(nullptr);
+}
+
+void MainWindow::on_pushButton_ChooseImage_clicked()
+{
+    auto fileContentReady = [this](const QString &fileName, const QByteArray &fileContent) {
+        if (fileName.isEmpty()) {
+            SPDLOG_INFO("No file is selected");
+        } else {
+            SPDLOG_INFO("fileName: {}", fileName.toStdString());
+            SPDLOG_INFO("fileContent.size(): {} bytes", fileContent.size());
+            QPixmap answerImage;
+            if (answerImage.loadFromData(fileContent)) {
+                auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
+                auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
+                answerImage = answerImage.scaled(QSize(w, h),
+                                                 Qt::KeepAspectRatio,
+                                                 Qt::SmoothTransformation);
+                ui->label_AnswerImage->setPixmap(answerImage);
+            }
+        }
+    };
+    QFileDialog::getOpenFileContent("Images (*.png *.xpm *.jpg)", fileContentReady);
+    return;
+    auto fileName = QFileDialog::getOpenFileName(this,
+                                                 "Select an image...",
+                                                 "",
+                                                 "Image Files (*.png *.jpg *.bmp)");
+    if (fileName.isEmpty()) {
+        SPDLOG_INFO("No file is selected");
+    } else {
+        SPDLOG_INFO("fileName: {}", fileName.toStdString());
+    }
 }

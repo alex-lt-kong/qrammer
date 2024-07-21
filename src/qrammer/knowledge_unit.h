@@ -20,6 +20,7 @@ struct knowledge_unit
     QString ClientName;
     QString Category;
     int SecSpent;
+    QByteArray AnswerImageBytes;
 };
 
 #endif // KNOWLEDGE_UNIT_H

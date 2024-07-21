@@ -7,14 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>376</width>
-    <height>82</height>
+    <height>84</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Deactivation Verification</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="res.qrc">
+   <iconset>
     <normaloff>:/Main.ico</normaloff>:/Main.ico</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0,0">
@@ -64,8 +64,6 @@
    </item>
   </layout>
  </widget>
- <resources>
-  <include location="res.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

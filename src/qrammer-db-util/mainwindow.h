@@ -47,6 +47,8 @@ private slots:
 
     void on_pushButton_Delete_clicked();
 
+    void on_pushButton_ChooseImage_clicked();
+
 private:
     void initCategory();
     void conductDatabaseSearch(QString field, QString keyword, QString maintype);

@@ -6,6 +6,8 @@
 #include <QString>
 
 #define DATABASE_DRIVER "QSQLITE"
+#define ORGANIZATION_NAME "ak-studio"
+#define APPLICATION_NAME "qrammer"
 
 extern QSqlDatabase db;
 extern QString databaseName;

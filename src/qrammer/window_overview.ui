@@ -154,7 +154,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QLabel" name="label_NKI">
+            <widget class="QLabel" name="label_NewKUCoeff">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Maximum" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -162,7 +162,7 @@
               </sizepolicy>
              </property>
              <property name="text">
-              <string>New KU Index</string>
+              <string>New KU Coeff</string>
              </property>
             </widget>
            </item>
@@ -210,7 +210,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lineEdit_NKI">
+            <widget class="QLineEdit" name="lineEdit_NewKUCoeff">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>

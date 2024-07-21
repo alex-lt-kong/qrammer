@@ -30,7 +30,11 @@ class CrammingWindow : public QMainWindow
 public:
     explicit CrammingWindow(QWidget *parent = nullptr);
     ~CrammingWindow();
-    void init(QList<CategoryMetaData*> *availableCategory, int NKI, int nnterval, int number, int windowStyle);
+    void init(QList<CategoryMetaData *> *availableCategory,
+              uint32_t newKuCoeff,
+              int nnterval,
+              int number,
+              int windowStyle);
     void initNextKU();
 
 private slots:
@@ -51,13 +55,12 @@ private slots:
     void on_pushButton_Skip_pressed();
     void on_pushButton_Check_pressed();
     void on_pushButton_Next_pressed();
-    void on_pushButton_Switch_pressed();
-    void on_textEdit_Draft_textChanged();
+    void on_pushButton_ChooseImage_clicked();
+    void on_textEdit_Response_textChanged();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    void showEvent(QShowEvent *event) override;
     void closeEvent (QCloseEvent *event) override;
 
 private:
@@ -73,7 +76,7 @@ private:
     QMenu *menuBlank;
 
     int64_t kuStartLearningTime;
-    int NKI;
+    uint32_t newKuCoeff;
     int interval;
     int number;
     int windowStyle;

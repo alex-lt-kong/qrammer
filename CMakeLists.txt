@@ -9,6 +9,9 @@ find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui Multimedia Network Sql Widgets)
 find_package(spdlog CONFIG REQUIRED)
 
+include(cmake/compiler-flags.cmake)
+include(cmake/sanitizers.cmake)
+
 qt_standard_project_setup()
 
 qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
@@ -63,6 +66,8 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
 
     ./src/common/logger.h
     ./src/common/logger.cpp
+
+    resources/res.qrc
 )
 
 
