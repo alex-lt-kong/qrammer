@@ -2,6 +2,7 @@
 #define WINDOW_CRAMMING_H
 
 #include "knowledge_unit.h"
+#include "src/qrammer/window_paramters.h"
 #include "window_overview.h"
 
 #include <QDateTime>
@@ -116,6 +117,8 @@ private:
     void onKuLoadCallback();
     void preKuLoadGuiUpdate();
     void postKuLoadGuiUpdate();
+    void saveWindowLayout();
+    void restoreWindowLayout();
 
     int currCatIndex;
     int totalKU;

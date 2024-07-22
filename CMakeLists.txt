@@ -4,6 +4,7 @@ project(Qrammer VERSION 7.3.19.0918 LANGUAGES C CXX)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
+set(CMAKE_CXX_STANDARD 20)
 
 find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui Multimedia Network Sql Widgets)
@@ -53,6 +54,8 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     resources/qrammer-db-tool.ico
     resources/qrammer-db-tool.ico
     resources/res.qrc
+    src/qrammer/window_paramters.h
+    cmake/compiler-flags.cmake cmake/sanitizers.cmake
 )
 
 

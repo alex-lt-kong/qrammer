@@ -7,12 +7,14 @@ string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
 #
 # Generic flags
 #
+if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
 add_compile_options("-Wall")
-add_compile_options("-Wextra")
 add_compile_options("-pedantic")
+else()
+add_compile_options("-W4")
+endif()
 
-# Silence many OATPP's marco-related warnings
-add_compile_options("-Wno-gnu-zero-variadic-macro-arguments")
+
 add_compile_options("-O3")
 add_compile_options("-g")
 
@@ -32,6 +34,7 @@ endif(CMAKE_CXX_COMPILER_ID MATCHES GNU)
 #
 if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
   add_compile_options("-D_GLIBCXX_ASSERTIONS")
+  add_compile_options("-Wextra")
   add_compile_options("-fasynchronous-unwind-tables")
   add_compile_options("-fexceptions")
   add_compile_options("-fstack-clash-protection")

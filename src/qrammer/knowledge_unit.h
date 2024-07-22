@@ -1,7 +1,7 @@
 #ifndef KNOWLEDGE_UNIT_H
 #define KNOWLEDGE_UNIT_H
 
-#include "qdatetime.h"
+#include <QDatetime>
 
 struct knowledge_unit
 {

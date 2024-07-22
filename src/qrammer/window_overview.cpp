@@ -261,7 +261,8 @@ void MainWindow::on_pushButton_Start_clicked()
 
 void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
 {
-    if (ui->lineEdit_WindowStyle->text() == "1000" || ui->lineEdit_WindowStyle->text() == "0001"
+    if (ui->lineEdit_WindowStyle->text() == "1100" || ui->lineEdit_WindowStyle->text() == "1000"
+        || ui->lineEdit_WindowStyle->text() == "0001" || ui->lineEdit_WindowStyle->text() == "0011"
         || ui->lineEdit_WindowStyle->text() == "1111") {
         settings.setValue("WindowStyle", ui->lineEdit_WindowStyle->text());
         initSettings();

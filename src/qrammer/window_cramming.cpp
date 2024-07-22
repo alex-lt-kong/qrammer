@@ -38,6 +38,23 @@ CrammingWindow::CrammingWindow(QWidget *parent)
     cku.PreviousScore = 0;
 }
 
+void CrammingWindow::saveWindowLayout()
+{
+    /*
+    wp.geometry = this->saveGeometry();
+    wp.state = this->saveState();
+    wp.pos = this->pos();*/
+}
+
+void CrammingWindow::restoreWindowLayout()
+{
+    /*
+    this->restoreGeometry(wp.geometry);
+    this->restoreState(wp.state);
+    this->move(wp.pos);
+*/
+}
+
 CrammingWindow::~CrammingWindow()
 {
     delete ui;
@@ -158,6 +175,7 @@ void CrammingWindow::on_pushButton_Next_clicked()
 void CrammingWindow::startInterval()
 {
     secDelayed = 0;
+    // saveWindowLayout();
     hide();
     timerDelay->start(1000);
 }
@@ -187,6 +205,7 @@ void CrammingWindow::tmrInterval()
     myMsg->exec();
 
     if (myMsg->isAccepted()) {
+        // restoreWindowLayout();
         show();
         initNextKU();
     } else {
@@ -1063,26 +1082,28 @@ void CrammingWindow::setWindowStyle()
     so.titleBarFlags = Qt::Window;
     int titlebarHeight = this->style()->pixelMetric(QStyle::PM_TitleBarHeight, &so, this);
 
-    if (windowStyle == 1000) {
-        QWidget::showNormal();
-        QRect geo = QApplication::primaryScreen()->availableGeometry();
+    QRect geo = QApplication::primaryScreen()->availableGeometry();
+    QWidget::showNormal();
+    switch (windowStyle) {
+    case 1000:
         this->setGeometry(0, titlebarHeight, geo.width() / 3, geo.height() - titlebarHeight);
-    } else if (windowStyle == 0001) {
-        QWidget::showNormal();
-        QRect geo = QApplication::primaryScreen()->availableGeometry();
-        setGeometry(geo.width() / 3 * 2, titlebarHeight, geo.width() / 3 , geo.height() - titlebarHeight);
-    } else {
-        this->showMaximized();        
-
-        if (QGuiApplication::primaryScreen()->size().width() < this->size().width()) {
-            // This ugly hack is to ensure that the window is maximized correctly.
-            // Sometimes, on Android platform, the width of the window would be much larger then the exact screen.
-            QRect geo = QApplication::QApplication::primaryScreen()->availableGeometry();
-            geo.setWidth(QGuiApplication::primaryScreen()->size().width());
-            this->setGeometry(geo);
-        }
+        break;
+    case 1100:
+        this->setGeometry(0, titlebarHeight, geo.width() / 2, geo.height() - titlebarHeight);
+        break;
+    // You cant write 0011 here: an integer constant that starts with 0 is an octal number
+    case 11:
+        setGeometry(geo.width() / 2, titlebarHeight, geo.width() / 2, geo.height() - titlebarHeight);
+        break;
+    case 1:
+        setGeometry(geo.width() / 3 * 2,
+                    titlebarHeight,
+                    geo.width() / 3,
+                    geo.height() - titlebarHeight);
+        break;
+    default:
+        this->showMaximized();
     }
-
     adaptSkipButton();
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);        // To make sure the resize is implemented before next step.
