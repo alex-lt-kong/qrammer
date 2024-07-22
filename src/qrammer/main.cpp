@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
     // QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansMonoCJKsc-Regular.otf");
     // QFontDatabase::addApplicationFont(tmpDir.path() + "/NotoSansCJKsc-Medium.otf");
 
+    /*
     if (QGuiApplication::platformName() == "windows") {
         QFont font = w.font();
         font.setFamily("Microsoft Yahei");
@@ -32,6 +33,7 @@ int main(int argc, char *argv[])
         // font.setPixelSize(14);
         QApplication::setFont(font);
     }
+    */
 
     // It appears that this line is needed so that the program would not quit if users select NO at the break reminder.
     a.setQuitOnLastWindowClosed(false);
