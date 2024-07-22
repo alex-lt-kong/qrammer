@@ -1354,17 +1354,7 @@ void CrammingWindow::on_pushButton_ChooseImage_clicked()
             }
         }
     };
-    QFileDialog::getOpenFileContent("Images (*.png *.xpm *.jpg)", fileContentReady);
-    return;
-    auto fileName = QFileDialog::getOpenFileName(this,
-                                                 "Select an image...",
-                                                 "",
-                                                 "Image Files (*.png *.jpg *.bmp)");
-    if (fileName.isEmpty()) {
-        SPDLOG_INFO("No file is selected");
-    } else {
-        SPDLOG_INFO("fileName: {}", fileName.toStdString());
-    }
+    QFileDialog::getOpenFileContent("Images (*.png *.bmp *.jpg *.jpeg *.webp)", fileContentReady);
 }
 
 void CrammingWindow::on_textEdit_Response_textChanged()
