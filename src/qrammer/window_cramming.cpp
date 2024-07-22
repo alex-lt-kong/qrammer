@@ -1083,19 +1083,22 @@ void CrammingWindow::setWindowStyle()
     int titlebarHeight = this->style()->pixelMetric(QStyle::PM_TitleBarHeight, &so, this);
 
     QRect geo = QApplication::primaryScreen()->availableGeometry();
-    QWidget::showNormal();
     switch (windowStyle) {
     case 1000:
+        QWidget::showNormal();
         this->setGeometry(0, titlebarHeight, geo.width() / 3, geo.height() - titlebarHeight);
         break;
     case 1100:
+        QWidget::showNormal();
         this->setGeometry(0, titlebarHeight, geo.width() / 2, geo.height() - titlebarHeight);
         break;
     // You cant write 0011 here: an integer constant that starts with 0 is an octal number
     case 11:
+        QWidget::showNormal();
         setGeometry(geo.width() / 2, titlebarHeight, geo.width() / 2, geo.height() - titlebarHeight);
         break;
     case 1:
+        QWidget::showNormal();
         setGeometry(geo.width() / 3 * 2,
                     titlebarHeight,
                     geo.width() / 3,

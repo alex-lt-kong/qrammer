@@ -2,31 +2,28 @@
 # # COMPILER FLAGS #################################################################################
 # ##################################################################################################
 
-string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
-
-#
 # Generic flags
-#
-if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
-add_compile_options("-Wall")
-add_compile_options("-pedantic")
-else()
-add_compile_options("-W4")
-endif()
-
-
 add_compile_options("-O3")
 add_compile_options("-g")
 
-#
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options("-Wall")
+    add_compile_options("-pedantic")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  # using Intel C++
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_compile_options("-W4")
+endif()
+
+
+
 # Allow the linker to remove unused data and functions
-#
-if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options("-fdata-sections")
   add_compile_options("-ffunction-sections")
   add_compile_options("-fno-common")
   add_compile_options("-Wl,--gc-sections")
-endif(CMAKE_CXX_COMPILER_ID MATCHES GNU)
+endif()
 
 #
 # Hardening flags
@@ -52,4 +49,4 @@ if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
   add_compile_options("-Wl,-z,defs")
   add_compile_options("-Wl,-z,now")
   add_compile_options("-Wl,-z,relro")
-endif(CMAKE_CXX_COMPILER_ID MATCHES GNU)
+endif()
