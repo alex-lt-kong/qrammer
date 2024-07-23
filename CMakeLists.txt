@@ -21,8 +21,8 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/bmbox.h
     src/qrammer/bmbox.ui
 
-    src/qrammer/downloader.cpp
-    src/qrammer/downloader.h
+
+
 
     src/qrammer/main.cpp
     src/qrammer/window_overview.cpp

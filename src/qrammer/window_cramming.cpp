@@ -388,26 +388,28 @@ void CrammingWindow::postKuLoadGuiUpdate()
 
     QString infos[20];
     QString t, v1, v2;
-    int i = 0;
+    int idx = 0;
 
     if (!isAndroid)
-        infos[i++] = "ID: " + QString::number(cku.ID);
+        infos[idx++] = "ID: " + QString::number(cku.ID);
 
     v1 = "Cat: " + cku.Category;
     v2 = "Category: " + cku.Category;
-    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1
+                                                             : infos[idx++] = v2;
 
     v1 = "Times: " + QString::number(cku.TimesPracticed);
     v2 = "Times Practiced: " + QString::number(cku.TimesPracticed);
-    (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1 : infos[idx++] = v2;
 
     v1 = "Score: " + QString::number(cku.PreviousScore, 'f', 0);
     v2 = "Previous Score: " + QString::number(cku.PreviousScore, 'f', 1);
-    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[i++] = v1 : infos[i++] = v2;
+    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1
+                                                             : infos[idx++] = v2;
 
     v1 = "Insert: " + (cku.InsertTime.isNull() ? "nul" : cku.InsertTime.toString("yyyyMMdd"));
     v2 = "Insert: " + (cku.InsertTime.isNull() ? "<null>" : cku.InsertTime.toString("yyyy-MM-dd"));
-    (fm.horizontalAdvance(v2) < winWidth / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
+    (fm.horizontalAdvance(v2) < winWidth / 10.0) ? infos[idx++] = v2 : infos[idx++] = v1;
 
     v1 = "First: "
          + (cku.FirstPracticeTime.isNull() ? "nul" : cku.FirstPracticeTime.toString("yyyyMMdd"));
@@ -415,43 +417,43 @@ void CrammingWindow::postKuLoadGuiUpdate()
          + (cku.FirstPracticeTime.isNull() ? "<null>"
                                            : cku.FirstPracticeTime.toString("yyyy-MM-dd"));
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
-        infos[i++] = v2;
+        infos[idx++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
-        infos[i++] = v1;
+        infos[idx++] = v1;
 
     v1 = "Min Used: " + QString::number(cku.SecSpent / 60);
     v2 = "Minutes Used: " + QString::number(cku.SecSpent / 60);
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
-        infos[i++] = v2;
+        infos[idx++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
-        infos[i++] = v1;
+        infos[idx++] = v1;
 
     v1 = "Last: "
          + (cku.LastPracticeTime.isNull() ? "nul" : cku.LastPracticeTime.toString("yyyyMMdd"));
     v2 = "Last Practice: "
          + (cku.LastPracticeTime.isNull() ? "<null>" : cku.LastPracticeTime.toString("yyyy-MM-dd"));
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
-        infos[i++] = v2;
+        infos[idx++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
-        infos[i++] = v1;
+        infos[idx++] = v1;
 
     v1 = "DDL: " + (cku.Deadline.isNull() ? "nul" : cku.Deadline.toString("yyyyMMdd"));
     v2 = "Deadline: " + (cku.Deadline.isNull() ? "<null>" : cku.Deadline.toString("yyyy-MM-dd"));
-    (fm.horizontalAdvance(v2) < winWidth / 9.0) ? infos[i++] = v2 : infos[i++] = v1;
+    (fm.horizontalAdvance(v2) < winWidth / 9.0) ? infos[idx++] = v2 : infos[idx++] = v1;
 
     v1 = "Client: " + (cku.ClientName.length() == 0 ? "nul" : cku.ClientName);
     v2 = "Client Name: " + (cku.ClientName.length() == 0 ? "<null>" : cku.ClientName);
     if (fm.horizontalAdvance(v2) < winWidth / 9.0)
-        infos[i++] = v2;
+        infos[idx++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
-        infos[i++] = v1;
+        infos[idx++] = v1;
 
     if (isAndroid || winWidth <= 1200) {
         v1 = "Prog.: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
              + QString::number(totalKU);
         v2 = "Progress: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
              + QString::number(totalKU);
-        (fm.horizontalAdvance(v2) < winWidth * 1.9 / 10.0) ? infos[i++] = v2 : infos[i++] = v1;
+        (fm.horizontalAdvance(v2) < winWidth * 1.9 / 10.0) ? infos[idx++] = v2 : infos[idx++] = v1;
 
         ui->progressBar_Learning->setVisible(false);
     } else {
@@ -463,7 +465,7 @@ void CrammingWindow::postKuLoadGuiUpdate()
                   + QString::number(availableCategory->at(j)->number);
             v1 += ", ";
         }
-        infos[i++] = v1.left(v1.length() - 2);
+        infos[idx++] = v1.left(v1.length() - 2);
         ui->progressBar_Learning->setValue(
             static_cast<int>((totalKU - remainingKUsToCram + 1) * 100.0 / (totalKU)));
         ui->progressBar_Learning->setFormat(QString::number(totalKU - remainingKUsToCram + 1) + "/"
@@ -1123,61 +1125,6 @@ QString CrammingWindow::convertStringToFilename(QString name)
     }
     return output;
 }
-
-/*
-void CrammingWindow::handleTTS(bool isQuestion)
-{
-    QString sanitizedFilepath, originalText, sanitizedFilename;
-    TTSDownloader *ttsDownloader = new TTSDownloader(this);
-    bool isTTSEnabled = false;
-
-    if (isQuestion) {
-        originalText = cku.Question;
-        sanitizedFilename = convertStringToFilename(originalText);
-        for (int i = 0; i < availableCategory->count(); i++) {
-            if (availableCategory->at(i)->name == cku.Category
-                && availableCategory->at(i)->ttsOption == 1) {
-                isTTSEnabled = true;
-                break;
-            }
-        }
-    } else {
-        originalText = ui->textEdit_Answer->document()->findBlockByLineNumber(0).text();
-        sanitizedFilename = convertStringToFilename(originalText);
-        for (int i = 0; i < availableCategory->count(); i++) {
-            if (availableCategory->at(i)->name == cku.Category
-                && availableCategory->at(i)->ttsOption == 2) {
-                isTTSEnabled = true;
-                break;
-            }
-        }
-    }
-    sanitizedFilepath = parentDir + "/speeches/" + sanitizedFilename + ".mp3";
-
-    if (!isTTSEnabled) {
-        delete ttsDownloader;
-        return;
-    }
-
-    QFileInfo check_file(sanitizedFilepath);
-    if (check_file.exists() && check_file.isFile()) {
-        SPDLOG_INFO("Start playing TTS file at {}", sanitizedFilepath.toStdString());
-        player->setSource(QUrl::fromLocalFile(sanitizedFilepath));
-        player->play();
-    } else {
-        auto url = "http://dict.youdao.com/dictvoice?audio=" + originalText + "&amp;amp;le=eng%3C";
-        SPDLOG_INFO("Start downloading TTS file from {} to {}",
-                    url.toStdString(),
-                    sanitizedFilepath.toStdString());
-        ttsDownloader->doDownload(url, sanitizedFilepath);
-        // http, instead of https, is used here.
-        // If https is used, the program would encounter a "TLS initialization failed" error on Windows. Not sure what would happen on Linux
-    }
-
-    // ttsDownloader->deleteLater();
-    //Since ttsDownloader works in an asynchronous manner, the object cannot be simply deleted here.
-}
-*/
 
 void CrammingWindow::actionResetTimer_triggered_cb()
 {

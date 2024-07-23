@@ -195,7 +195,7 @@ void MainWindow::initSettings()
 
 void MainWindow::initStatistics()
 {
-    QMap<QString, int>::iterator i;
+    // QMap<QString, int>::iterator i;
     for (int i = 0; i < allCats->count(); i++) {
         allCats->at(i)->snapshot = new Snapshot(allCats->at(i)->name);
         ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
