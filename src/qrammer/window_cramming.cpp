@@ -609,6 +609,7 @@ FROM knowledge_units
 WHERE
     category = :category AND
     deadline <= DATETIME('now', 'localtime') AND
+    LENGTH(deadline) > 0 AND
     is_shelved = 0
 )***";
     if (!query.prepare(stmt)) {
@@ -726,6 +727,7 @@ FROM knowledge_units
 WHERE
     category = :category AND
     deadline <= DATETIME('now', 'localtime') AND
+    LENGTH(deadline) > 0 AND
     is_shelved = 0
 ORDER BY RANDOM()
 LIMIT 1
@@ -807,6 +809,9 @@ LIMIT 1;
         cku.SecSpent = query.value(idx++).toInt();
         cku.AnswerImageBytes = query.value(idx++).toByteArray();
         query.finish();
+        SPDLOG_INFO("Unit {} selected from statement {}",
+                    cku.ID,
+                    stmt.replace("\n", " ").toStdString());
     } else {
         // if (promptUserToRetryDBError("Extracting next KU from query.first()",
         //                             db.databaseName(),

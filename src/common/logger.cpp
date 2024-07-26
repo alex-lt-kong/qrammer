@@ -19,14 +19,17 @@ void init_logger()
                                                                         max_files);
 
     std::vector<sink_ptr> sinks{stdout_sink, rotating_sink};
+    spdlog::logger lgr("multi_sink", {stdout_sink, rotating_sink});
     // q_size means the number of items in the queue, not the size in byte of the
     // queue
+    /*
     init_thread_pool(1024 * 8, 1);
     auto logger = std::make_shared<async_logger>("qrammer_logger",
                                                  sinks.begin(),
                                                  sinks.end(),
                                                  thread_pool(),
                                                  async_overflow_policy::overrun_oldest);
-    spdlog::set_default_logger(logger);
+    */
+    // spdlog::set_default_logger(logger);
     spdlog::set_pattern("%Y-%m-%dT%T.%f%z | %5t | %40! | %8l | %v");
 }
