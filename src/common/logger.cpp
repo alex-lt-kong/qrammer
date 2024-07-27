@@ -1,5 +1,3 @@
-
-#include <spdlog/async.h>
 #include <spdlog/sinks/daily_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -12,7 +10,7 @@ void init_logger()
 {
     auto stdout_sink = std::make_shared<sinks::stdout_color_sink_mt>();
 
-    size_t max_size_bytes = 10 * 1024 * 1024;
+    size_t max_size_bytes = 1 * 1024 * 1024;
     size_t max_files = 3;
     auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>("logs/qrammer.log",
                                                                         max_size_bytes,
@@ -30,6 +28,6 @@ void init_logger()
                                                  thread_pool(),
                                                  async_overflow_policy::overrun_oldest);
     */
-    // spdlog::set_default_logger(logger);
+    spdlog::set_default_logger(std::make_shared<logger>(lgr));
     spdlog::set_pattern("%Y-%m-%dT%T.%f%z | %5t | %40! | %8l | %v");
 }

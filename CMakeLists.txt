@@ -12,6 +12,7 @@ find_package(spdlog CONFIG REQUIRED)
 
 include(cmake/compiler-flags.cmake)
 include(cmake/sanitizers.cmake)
+include(cmake/git.cmake)
 
 qt_standard_project_setup()
 
@@ -20,9 +21,6 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/bmbox.cpp
     src/qrammer/bmbox.h
     src/qrammer/bmbox.ui
-
-
-
 
     src/qrammer/main.cpp
     src/qrammer/window_overview.cpp
@@ -56,6 +54,7 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     resources/res.qrc
     src/qrammer/window_paramters.h
     cmake/compiler-flags.cmake cmake/sanitizers.cmake
+    cmake/git.cmake
 )
 
 
@@ -76,10 +75,12 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
 
 target_compile_definitions(qrammer PRIVATE
     QT_DEPRECATED_WARNINGS
+    "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
 )
 
 target_compile_definitions(qrammer-db-util PRIVATE
     QT_DEPRECATED_WARNINGS
+    "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
 )
 
 target_link_libraries(qrammer PRIVATE
