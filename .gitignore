@@ -63,3 +63,4 @@ compile_commands.json
 
 build/
 *.keystore
+logs/

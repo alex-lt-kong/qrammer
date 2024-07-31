@@ -13,12 +13,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    //QDir tmpDir = QApplication::applicationFilePath();
-    // tmpDir.cdUp();
-    //tmpDir.cdUp();
-    //databaseName = tmpDir.path() + "/db/database.sqlite";
-    //db.conn = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    //db.conn.setDatabaseName(databaseName);
     if (!initCategoryStructure()) return;
      //To make sure that the program quits if database cannot be opened
     if (!initUI())
@@ -273,12 +267,6 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
     }
 }
 
-void MainWindow::on_lineEdit_NKI_textChanged(const QString &)
-{
-    settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
-    initSettings();
-}
-
 void MainWindow::on_lineEdit_FontSize_textChanged(const QString &)
 {
     settings.setValue("FontSize", ui->lineEdit_FontSize->text());
@@ -313,4 +301,10 @@ void MainWindow::on_pushButton_Start_pressed()
 void MainWindow::on_pushButton_Quit_pressed()
 {
     MainWindow::on_pushButton_Quit_clicked();
+}
+
+void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
+{
+    settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
+    initSettings();
 }

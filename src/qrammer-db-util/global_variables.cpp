@@ -3,4 +3,4 @@
 
 QString databaseName;
 QSqlDatabase sqlDb;
-DB db;
+// DB db;

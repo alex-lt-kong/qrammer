@@ -268,9 +268,7 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
     //db.setDatabaseName(databaseName);
     while (true) {
         if (!db.conn.isOpen() && !db.conn.open()) {
-            if (promptUserToRetryDBError("db.open()",
-                                         db.conn.databaseName(),
-                                         db.conn.lastError().text()))
+            if (promptUserToRetryDBError("db.open()", db.conn.lastError().text()))
                 continue;
             else
                 break;
@@ -297,7 +295,6 @@ WHERE id = :id
                                          : "null");
         if (!query.prepare(stmt)) {
             if (promptUserToRetryDBError(QString("query->prepare(%1)").arg(stmt),
-                                         db.conn.databaseName(),
                                          query.lastError().text()))
                 continue;
             else
@@ -327,7 +324,6 @@ WHERE id = :id
         if (!query.exec()) {
             if (promptUserToRetryDBError(QString("query.exec() the following statement: 1%")
                                              .arg(stmt),
-                                         db.conn.databaseName(),
                                          query.lastError().text()))
                 continue;
             else break; // Need to consider whether this break is needed.
@@ -338,9 +334,7 @@ WHERE id = :id
                           "'localtime') WHERE id = :id");
             query.bindValue(":id", cku.ID);
             if (!query.exec()) {
-                if (promptUserToRetryDBError("open database",
-                                             db.conn.databaseName(),
-                                             query.lastError().text()))
+                if (promptUserToRetryDBError("open database", query.lastError().text()))
                     continue;
                 else break; // Need to consider whether this break is needed.
             }
@@ -595,24 +589,13 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
     SPDLOG_INFO(msg.toStdString());
 
-    if (!db.conn.isOpen() && !db.conn.open()) {
-        if (promptUserToRetryDBError("db.open()",
-                                     db.conn.databaseName(),
-                                     db.conn.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        QApplication::exit();
-        return;
-    }
-
     int dueKuCountByCat = -1;
     try {
         dueKuCountByCat = db.getDueKuCountByCategory(currCat);
     } catch (const std::runtime_error &e) {
         QString errMsg = QString("Failed to query dueNumByCat: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
-        if (promptUserToRetryDBError("getDueNumByCategory()", db.getDatabasePath(), errMsg)) {
+        if (promptUserToRetryDBError("getDueNumByCategory()", errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -626,7 +609,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     } catch (const std::runtime_error &e) {
         QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
-        if (promptUserToRetryDBError("getTotalKUNumByCategory()", db.getDatabasePath(), errMsg)) {
+        if (promptUserToRetryDBError("getTotalKUNumByCategory()", errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -659,9 +642,9 @@ void CrammingWindow::loadNewKU(int recursion_depth)
             }
         }
     } catch (const std::runtime_error &e) {
-        QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
+        QString errMsg = QString("Failed to select a knowledge unit: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
-        if (promptUserToRetryDBError("getTotalKUNumByCategory()", db.getDatabasePath(), errMsg)) {
+        if (promptUserToRetryDBError("Select a knowledge unit from database", errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -816,17 +799,17 @@ void CrammingWindow::initContextMenu()
     SearchOptions = new QHash<QString, QString>;
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     // db.setDatabaseName(databaseName);
-    if (db.conn.open()) {
-        QSqlQuery *query = new QSqlQuery(db.conn);
+    if (db.conn.isOpen() || db.conn.open()) {
+        auto query = QSqlQuery(db.conn);
 
-        query->prepare("SELECT name, url FROM search_options ORDER BY id ASC");
-        query->exec();
+        query.prepare("SELECT name, url FROM search_options ORDER BY id ASC");
+        query.exec();
 
-        while (query->next()) {
-            SearchOptions->insert(query->value(0).toString(), query->value(1).toString());
+        while (query.next()) {
+            SearchOptions->insert(query.value(0).toString(), query.value(1).toString());
 
             QAction* actionSearchOption = new QAction(ui->textEdit_Question);
-            actionSearchOption->setText(query->value(0).toString());
+            actionSearchOption->setText(query.value(0).toString());
             menuQuestion->addAction(actionSearchOption);
             menuAnswer->addAction(actionSearchOption);
             menuBlank->addAction(actionSearchOption);
@@ -837,6 +820,7 @@ void CrammingWindow::initContextMenu()
                              "Warning",
                              "Cannot open the databse:\n" + db.conn.lastError().text());
         QApplication::quit();
+        return;
     }
 
     ui->textEdit_Question->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -1113,12 +1097,12 @@ void CrammingWindow::on_pushButton_Next_pressed()
 }
 
 // Return value: If user would like to retry the same database operation
-bool CrammingWindow::promptUserToRetryDBError(QString operationName, QString dbPath, QString errMsg)
+bool CrammingWindow::promptUserToRetryDBError(QString operationName, QString errMsg)
 {
     auto msg = QString(R"*(Operation: %1
 Database path: %2
 Error message: %3)*")
-                   .arg(operationName, dbPath, errMsg);
+                   .arg(operationName, QString::fromStdString(db.getDatabasePath()), errMsg);
     SPDLOG_ERROR(msg.toStdString());
     QMessageBox::StandardButton resBtn = QMessageBox::warning(this,
                                                               "Qrammer - DB Error",

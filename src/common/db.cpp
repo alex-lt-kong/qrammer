@@ -1,22 +1,24 @@
 #include "./src/common/db.h"
-#include "./src/qrammer/global_variables.h"
-#include "spdlog/spdlog.h"
 
 #include <QApplication>
 #include <QDir>
+#include <QSqlError>
 #include <QSqlQuery>
-#include <QSqlerror>
+#include <spdlog/spdlog.h>
 
 using namespace std;
 
 DB::DB()
 {
-    QDir tmpDir = QApplication::applicationFilePath();
-    tmpDir.cdUp();
-    this->databaseName = tmpDir.path() + "/db/database.sqlite";
-    qDebug() << QSqlDatabase::drivers();
-    conn = QSqlDatabase::addDatabase("QSQLITE", "SQLITE");
-    conn.setDatabaseName(databaseName);
+    qDebug() << "DB::DB()";
+}
+
+DB::DB(const std::filesystem::path &dbPath)
+{
+    qDebug() << "DB::DB(const QString &dbPath)";
+    conn = QSqlDatabase::addDatabase("QSQLITE");
+    databaseName = dbPath.string();
+    conn.setDatabaseName(QString::fromStdString(dbPath.string()));
 
     kuColumns = QString(R"***(
 id,
@@ -86,7 +88,7 @@ WHERE category = :category AND is_shelved = 0
     return totalKUCount;
 }
 
-QString DB::getDatabasePath()
+std::string DB::getDatabasePath()
 {
     return databaseName;
 }
@@ -113,7 +115,7 @@ LIMIT 1
     if (query.first()) {
         return fillinKu(query);
     } else {
-        throw runtime_error("Failed to SELECT a knowledge unit");
+        throw runtime_error("Failed to SELECT a knowledge unit from getUrgentKu();");
     }
 }
 
@@ -133,12 +135,16 @@ LIMIT 1
     auto query = prepareQuery(stmt);
     query.bindValue(":category", category);
     if (!query.exec()) {
-        throw runtime_error(query.lastError().text().toStdString());
+        auto errMsg = query.lastError().text().toStdString();
+        SPDLOG_ERROR(errMsg);
+        throw runtime_error(errMsg);
     }
     if (query.first()) {
         return fillinKu(query);
     } else {
-        throw runtime_error("Failed to SELECT a knowledge unit");
+        auto errMsg = "Failed to SELECT a knowledge unit from getNewKu();";
+        SPDLOG_ERROR(errMsg);
+        throw runtime_error(errMsg);
     }
 }
 
@@ -162,14 +168,14 @@ LIMIT 1;
     if (query.first()) {
         return fillinKu(query);
     } else {
-        throw runtime_error("Failed to SELECT a knowledge unit");
+        throw runtime_error("Failed to SELECT a knowledge unit from getRandomKu();");
     }
 }
 
 void DB::openConnection()
 {
     if (!conn.isOpen() && !conn.open()) {
-        throw runtime_error(conn.lastError().text().toStdString());
+        throw runtime_error("Failed to open database: " + conn.lastError().text().toStdString());
     }
 }
 

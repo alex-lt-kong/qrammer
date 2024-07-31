@@ -34,27 +34,18 @@ public:
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
-
     void closeEvent (QCloseEvent *event) override;
 
 private slots:
     void on_pushButton_Start_clicked();
-
     void on_lineEdit_WindowStyle_textChanged(const QString &);
-
-    void on_lineEdit_NKI_textChanged(const QString &);
-
     void on_lineEdit_FontSize_textChanged(const QString &);
-
     void on_pushButton_Quit_clicked();
-
     void on_lineEdit_IntervalNum_textChanged(const QString &);
-
     void on_lineEdit_ClientName_textChanged();
-
     void on_pushButton_Start_pressed();
-
     void on_pushButton_Quit_pressed();
+    void on_lineEdit_NewKUCoeff_textChanged(const QString &arg1);
 
 private:
     bool initCategoryStructure();

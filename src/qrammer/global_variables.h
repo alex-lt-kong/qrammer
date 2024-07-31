@@ -4,7 +4,7 @@
 #include "src/common/db.h"
 
 #include <QSettings>
-#include <QSqldatabase>
+#include <QSqlDatabase>
 #include <QString>
 
 #define DATABASE_DRIVER "QSQLITE"

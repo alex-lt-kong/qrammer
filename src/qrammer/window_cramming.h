@@ -110,7 +110,7 @@ private:
     // void handleTTS(bool isQuestion);
     int pickCategoryforNewKU();
     bool downloadTTSFile(QString text);
-    bool promptUserToRetryDBError(QString operationName, QString dbPath, QString lastError);
+    bool promptUserToRetryDBError(QString operationName, QString lastError);
     void startInterval();
     void onAnswerShownCallback();
     void fillinThenExecuteCommand(QString callbackName);

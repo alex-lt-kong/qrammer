@@ -55,7 +55,7 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/window_paramters.h
     cmake/compiler-flags.cmake cmake/sanitizers.cmake
     cmake/git.cmake
-    src/common/db.h src/common/db.cpp
+    ./src/common/db.h ./src/common/db.cpp
 )
 
 
