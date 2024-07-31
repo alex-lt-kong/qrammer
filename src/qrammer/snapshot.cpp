@@ -11,8 +11,8 @@ QString Snapshot::getSnapshot()
     QString result;
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     //db.setDatabaseName(databaseName);
-    if (db.open()) {
-        QSqlQuery query = QSqlQuery(db);
+    if (db.conn.open()) {
+        QSqlQuery query = QSqlQuery(db.conn);
         query.prepare(
             "SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND is_shelved = 0");
         query.bindValue(":category", category);
@@ -149,7 +149,7 @@ QString Snapshot::getSnapshot()
 
         return result;
     } else {
-        return "Failed to open database: " + db.lastError().text();
+        return "Failed to open database: " + db.conn.lastError().text();
     }
 }
 
@@ -160,11 +160,11 @@ QString Snapshot::getComparison(bool detailed)
     double t_learned = 0;
     double t_ddlPassed = 0;
 
-    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    //db.setDatabaseName(databaseName);
-    QSqlQuery query = QSqlQuery(db);
+    //auto db.conn = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.conn.setDatabaseName(databaseName);
+    QSqlQuery query = QSqlQuery(db.conn);
 
-    if (db.open()) {
+    if (db.conn.open()) {
         query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
                       "times_practiced > 0 AND is_shelved = 0");
         query.bindValue(":category", category);
@@ -193,7 +193,7 @@ QString Snapshot::getComparison(bool detailed)
 
         return result;
     } else {
-        return "Failed to open database: " + db.lastError().text();
+        return "Failed to open database: " + db.conn.lastError().text();
     }
 }
 

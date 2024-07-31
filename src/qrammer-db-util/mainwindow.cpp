@@ -13,9 +13,9 @@ MainWindow::MainWindow(QWidget *parent) :
     QDir tmpDir = QApplication::applicationFilePath();
     tmpDir.cdUp();
     tmpDir.cdUp();
-    db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
-    db.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
+    sqlDb = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    sqlDb.setDatabaseName(databaseName);
+    sqlDb.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
 
     ui->setupUi(this);
 
@@ -45,17 +45,17 @@ MainWindow::~MainWindow()
 
 void MainWindow::initCategory()
 {
-    if (!db.isOpen() && !db.open()) {
+    if (!sqlDb.isOpen() && !sqlDb.open()) {
         QMessageBox::warning(this,
                              "Warning",
                              QString("Cannot open the database %1:\n%2")
-                                 .arg(db.databaseName(), db.lastError().text()));
+                                 .arg(sqlDb.databaseName(), sqlDb.lastError().text()));
         QApplication::quit();
         return;
     }
     ui->comboBox_Maintype_Search->clear();
 
-    QSqlQuery query = QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(sqlDb);
     auto stmt = "SELECT DISTINCT(category) FROM knowledge_units ORDER BY category ASC";
     if (!query.prepare(stmt)) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
@@ -74,16 +74,16 @@ void MainWindow::initCategory()
     // A very weird workaround: if not receving all maintypes in t first and then add them to combox, only the first item would be added.
     ui->comboBox_Maintype_Search->addItems(t);
     ui->comboBox_Maintype_Meta->addItems(t);
-    db.close();
+    sqlDb.close();
 }
 
 void MainWindow::conductDatabaseSearch(QString field, QString keyword, QString category)
 {
     SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
-    if (!db.isOpen() && !db.open()) {
-        SPDLOG_ERROR(db.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.lastError().text());
+    if (!sqlDb.isOpen() && !sqlDb.open()) {
+        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
         return;
     }
     auto stmt = QString(R"***(
@@ -94,7 +94,7 @@ WHERE
     %1 LIKE :keyword
 LIMIT 50)***")
                     .arg(field);
-    auto query = QSqlQuery(db);
+    auto query = QSqlQuery(sqlDb);
     if (!query.prepare(stmt)) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
         QMessageBox::critical(this, "Error", query.lastError().text());
@@ -131,12 +131,12 @@ LIMIT 50)***")
 void MainWindow::showSingleKU(int kuID)
 {
     currKUID = kuID;
-    if (!db.isOpen() && !db.open()) {
-        SPDLOG_ERROR(db.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.lastError().text());
+    if (!sqlDb.isOpen() && !sqlDb.open()) {
+        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
         return;
     }
-    auto query = QSqlQuery(db);
+    auto query = QSqlQuery(sqlDb);
     auto columns = QString(R"***(
 id,
 question,
@@ -306,13 +306,13 @@ void MainWindow::on_pushButton_WriteDB_clicked()
     if (!inputAvailabilityCheck())
         return;
 
-    if (!db.isOpen() && !db.open()) {
-        SPDLOG_ERROR(db.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.lastError().text());
+    if (!sqlDb.isOpen() && !sqlDb.open()) {
+        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
         return;
     }
 
-    QSqlQuery query = QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(sqlDb);
     if (currKUID == -1) {
         auto stmt = QString(R"***(
 INSERT INTO knowledge_units (
@@ -438,13 +438,13 @@ void MainWindow::on_pushButton_Delete_clicked()
         != QMessageBox::Yes)
         return;
 
-    if (!db.isOpen() && !db.open()) {
-        SPDLOG_ERROR(db.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.lastError().text());
+    if (!sqlDb.isOpen() && !sqlDb.open()) {
+        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
         return;
     }
 
-    QSqlQuery query = QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(sqlDb);
     if (currKUID > 0) {
         auto stmt = "DELETE FROM knowledge_units WHERE id = :id";
         if (!query.prepare(stmt)) {

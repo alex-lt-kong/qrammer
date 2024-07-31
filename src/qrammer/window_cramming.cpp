@@ -1,6 +1,7 @@
 #include "src/qrammer/window_cramming.h"
 #include "bmbox.h"
 #include "msgbox.h"
+#include "src/common/db.h"
 #include "src/common/utils.h"
 #include "src/qrammer/global_variables.h"
 #include "ui_window_cramming.h"
@@ -266,14 +267,16 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     //db.setDatabaseName(databaseName);
     while (true) {
-        if (!db.isOpen() && !db.open()) {
-            if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text()))
+        if (!db.conn.isOpen() && !db.conn.open()) {
+            if (promptUserToRetryDBError("db.open()",
+                                         db.conn.databaseName(),
+                                         db.conn.lastError().text()))
                 continue;
             else
                 break;
         }
 
-        QSqlQuery query = QSqlQuery(db);
+        QSqlQuery query = QSqlQuery(db.conn);
         auto stmt = QString(R"**(
 UPDATE knowledge_units
 SET
@@ -294,7 +297,7 @@ WHERE id = :id
                                          : "null");
         if (!query.prepare(stmt)) {
             if (promptUserToRetryDBError(QString("query->prepare(%1)").arg(stmt),
-                                         db.databaseName(),
+                                         db.conn.databaseName(),
                                          query.lastError().text()))
                 continue;
             else
@@ -324,7 +327,7 @@ WHERE id = :id
         if (!query.exec()) {
             if (promptUserToRetryDBError(QString("query.exec() the following statement: 1%")
                                              .arg(stmt),
-                                         db.databaseName(),
+                                         db.conn.databaseName(),
                                          query.lastError().text()))
                 continue;
             else break; // Need to consider whether this break is needed.
@@ -336,7 +339,7 @@ WHERE id = :id
             query.bindValue(":id", cku.ID);
             if (!query.exec()) {
                 if (promptUserToRetryDBError("open database",
-                                             db.databaseName(),
+                                             db.conn.databaseName(),
                                              query.lastError().text()))
                     continue;
                 else break; // Need to consider whether this break is needed.
@@ -592,58 +595,10 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
     SPDLOG_INFO(msg.toStdString());
 
-    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    //db.setDatabaseName(databaseName);
-    if (!db.isOpen() && !db.open()) {
-        if (promptUserToRetryDBError("db.open()", db.databaseName(), db.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        QApplication::exit();
-        return;
-    }
-    QSqlQuery query = QSqlQuery(db);
-    QString stmt = R"***(
-SELECT COUNT(*)
-FROM knowledge_units
-WHERE
-    category = :category AND
-    deadline <= DATETIME('now', 'localtime') AND
-    LENGTH(deadline) > 0 AND
-    is_shelved = 0
-)***";
-    if (!query.prepare(stmt)) {
-        if (promptUserToRetryDBError(QString("query.prepare(%1)").arg(stmt),
-                                     db.databaseName(),
-                                     db.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        QApplication::exit();
-        return;
-    }
-    query.bindValue(":category", currCat);
-
-    int dueNumByCat = 0;
-    if (!query.exec()) {
-        if (promptUserToRetryDBError(
-                QString("query.exec() the following statement to extract dueNumByCat:\n%1").arg(stmt),
-                db.databaseName(),
-                query.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        QApplication::exit();
-        return;
-    }
-    if (query.next()) {
-        dueNumByCat = query.value(0).toInt();
-        SPDLOG_INFO("dueNum of category [{}]: {}", currCat.toStdString(), dueNumByCat);
-        query.finish();
-    } else {
-        if (promptUserToRetryDBError("Extracting dueNumByCat from query.next()",
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+    if (!db.conn.isOpen() && !db.conn.open()) {
+        if (promptUserToRetryDBError("db.open()",
+                                     db.conn.databaseName(),
+                                     db.conn.lastError().text())) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -651,42 +606,27 @@ WHERE
         return;
     }
 
-    stmt = R"***(
-SELECT COUNT(*)
-FROM knowledge_units
-WHERE category = :category AND is_shelved = 0
-)***";
-    if (!query.prepare(stmt)) {
-        if (promptUserToRetryDBError(QString("query.prepare(%1)").arg(stmt),
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+    int dueKuCountByCat = -1;
+    try {
+        dueKuCountByCat = db.getDueKuCountByCategory(currCat);
+    } catch (const std::runtime_error &e) {
+        QString errMsg = QString("Failed to query dueNumByCat: %1").arg(e.what());
+        SPDLOG_ERROR(errMsg.toStdString());
+        if (promptUserToRetryDBError("getDueNumByCategory()", db.getDatabasePath(), errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
         QApplication::exit();
         return;
     }
-    query.bindValue(":category", currCat);
 
-    if (!query.exec()) {
-        if (promptUserToRetryDBError(
-                QString("query.exec() the following statement to extract TotalNum:\n%1").arg(stmt),
-                db.databaseName(),
-                query.lastError().text())) {
-            loadNewKU(++recursion_depth);
-            return;
-        }
-        QApplication::exit();
-        return;
-    }
-    int TotalNum;
-    if (query.next()) {
-        TotalNum = query.value(0).toInt();
-        query.finish();
-    } else {
-        if (promptUserToRetryDBError("Extracting TotalNum from query.next()",
-                                     db.databaseName(),
-                                     query.lastError().text())) {
+    int totalKuCount = -1;
+    try {
+        totalKuCount = db.getTotalKUNumByCategory(currCat);
+    } catch (const std::runtime_error &e) {
+        QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
+        SPDLOG_ERROR(errMsg.toStdString());
+        if (promptUserToRetryDBError("getTotalKUNumByCategory()", db.getDatabasePath(), errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
@@ -695,132 +635,38 @@ WHERE category = :category AND is_shelved = 0
     }
 
     double urgencyCoeff = 1
-                          - (qPow(static_cast<double>(TotalNum - dueNumByCat) / TotalNum,
-                                  0.0275 * TotalNum + dueNumByCat)
+                          - (qPow(static_cast<double>(totalKuCount - dueKuCountByCat) / totalKuCount,
+                                  0.0275 * totalKuCount + dueKuCountByCat)
                              * 0.65);
-    SPDLOG_INFO("TotalNum: {}, dueNumByCat: {}, urgencyCoef: {}",
-                TotalNum,
-                dueNumByCat,
+    SPDLOG_INFO("totalKuCount: {}, dueKuCountByCat: {}, urgencyCoef: {}",
+                totalKuCount,
+                dueKuCountByCat,
                 urgencyCoeff);
-    const auto columns = QString(R"***(
-id,
-question,
-answer,
-passing_score,
-previous_score,
-times_practiced,
-insert_time,
-first_practice_time,
-last_practice_time,
-deadline,
-client_name,
-category,
-time_used,
-answer_image)***");
+
     double r = ranGen.generateDouble();
     SPDLOG_INFO("A random number in [0, 1): {}", r);
-    if (r < urgencyCoeff) {
-        SPDLOG_INFO("SELECTing an urgent unit");
-        stmt = QString(R"***(
-SELECT %1
-FROM knowledge_units
-WHERE
-    category = :category AND
-    deadline <= DATETIME('now', 'localtime') AND
-    LENGTH(deadline) > 0 AND
-    is_shelved = 0
-ORDER BY RANDOM()
-LIMIT 1
-)***")
-                   .arg(columns);
-        query.prepare(stmt);
-        query.bindValue(":category", currCat);
-    } else {
-        if (ranGen.generate() % 100 <= newKuCoeff) {
-            SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
-            stmt = QString(R"***(
-SELECT %1
-FROM knowledge_units
-WHERE
-    category = :category AND
-    times_practiced = 0 AND
-    is_shelved = 0
-ORDER BY RANDOM()
-LIMIT 1
-)***")
-                       .arg(columns);
-            query.prepare(stmt);
-            query.bindValue(":category", currCat);
+    try {
+        if (r < urgencyCoeff) {
+            SPDLOG_INFO("SELECTing an urgent unit");
+            cku = db.getUrgentKu(currCat);
         } else {
-            SPDLOG_INFO("Randomly SELECTing a unit");
-            stmt = QString(R"***(
-SELECT %1
-FROM knowledge_units
-WHERE
-    category = :category AND
-    is_shelved = 0
-ORDER BY RANDOM()
-LIMIT 1;
-)***")
-                       .arg(columns);
-            if (!query.prepare(stmt)) {
-                if (promptUserToRetryDBError(
-                        QString(
-                            "query.prepare() the following stmt to load a new KnowledgeUnit:\n%1")
-                            .arg(stmt),
-                        db.databaseName(),
-                        query.lastError().text())) {
-                    loadNewKU(++recursion_depth);
-                    return;
-                }
-                QApplication::exit();
-                return;
+            if (ranGen.generate() % 100 <= newKuCoeff) {
+                SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
+                cku = db.getNewKu(currCat);
+            } else {
+                SPDLOG_INFO("Randomly SELECTing a unit");
+                cku = db.getRandomKu(currCat);
             }
-            query.bindValue(":category", currCat);
         }
-    }
-
-    if (!query.exec()) {
-        if (promptUserToRetryDBError(
-                QString("query.exec() the following query to load a new KnowledgeUnit:\n%1")
-                    .arg(query.lastQuery()),
-                db.databaseName(),
-                query.lastError().text())) {
+    } catch (const std::runtime_error &e) {
+        QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
+        SPDLOG_ERROR(errMsg.toStdString());
+        if (promptUserToRetryDBError("getTotalKUNumByCategory()", db.getDatabasePath(), errMsg)) {
             loadNewKU(++recursion_depth);
             return;
         }
         QApplication::exit();
         return;
-    }
-    if (query.first()) {
-        int idx = 0;
-        cku.ID = query.value(idx++).toInt();
-        cku.Question = query.value(idx++).toString();
-        cku.Answer = query.value(idx++).toString();
-        cku.PassingScore = query.value(idx++).toDouble();
-        cku.PreviousScore = query.value(idx++).toDouble();
-        cku.TimesPracticed = query.value(idx++).toInt();
-        cku.InsertTime = query.value(idx++).toDateTime();
-        cku.FirstPracticeTime = query.value(idx++).toDateTime();
-        cku.LastPracticeTime = query.value(idx++).toDateTime();
-        cku.Deadline = query.value(idx++).toDateTime();
-        cku.ClientName = query.value(idx++).toString();
-        cku.Category = query.value(idx++).toString();
-        cku.SecSpent = query.value(idx++).toInt();
-        cku.AnswerImageBytes = query.value(idx++).toByteArray();
-        query.finish();
-        SPDLOG_INFO("Unit {} selected from statement {}",
-                    cku.ID,
-                    stmt.replace("\n", " ").toStdString());
-    } else {
-        // if (promptUserToRetryDBError("Extracting next KU from query.first()",
-        //                             db.databaseName(),
-        //                            query.lastError().text())) {
-        loadNewKU(++recursion_depth);
-        //   return;
-        // }
-        //QApplication::exit();
-        //return;
     }
 
     ui->textEdit_Question->setPlainText(cku.Question);
@@ -970,8 +816,8 @@ void CrammingWindow::initContextMenu()
     SearchOptions = new QHash<QString, QString>;
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     // db.setDatabaseName(databaseName);
-    if (db.open()) {
-        QSqlQuery *query = new QSqlQuery(db);
+    if (db.conn.open()) {
+        QSqlQuery *query = new QSqlQuery(db.conn);
 
         query->prepare("SELECT name, url FROM search_options ORDER BY id ASC");
         query->exec();
@@ -987,7 +833,9 @@ void CrammingWindow::initContextMenu()
         }
 
     } else {
-        QMessageBox::warning(this, "Warning", "Cannot open the databse:\n" + db.lastError().text());
+        QMessageBox::warning(this,
+                             "Warning",
+                             "Cannot open the databse:\n" + db.conn.lastError().text());
         QApplication::quit();
     }
 

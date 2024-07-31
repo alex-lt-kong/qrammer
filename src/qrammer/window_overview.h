@@ -57,7 +57,6 @@ private slots:
     void on_pushButton_Quit_pressed();
 
 private:
-    void initPlatformSpecificSettings();
     bool initCategoryStructure();
     bool initUI();
     void initSettings();

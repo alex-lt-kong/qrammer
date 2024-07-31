@@ -6,7 +6,7 @@
 
 #define DATABASE_DRIVER "QSQLITE"
 
-extern QSqlDatabase db;
+extern QSqlDatabase sqlDb;
 extern QString databaseName;
 
 #endif // GLOBAL_VARIABLES_H

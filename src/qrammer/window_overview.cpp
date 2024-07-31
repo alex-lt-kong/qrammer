@@ -1,5 +1,6 @@
 #include "window_overview.h"
 #include "global_variables.h"
+#include "src/common/db.h"
 #include "src/qrammer/ui_window_overview.h"
 #include "window_cramming.h"
 
@@ -12,9 +13,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    initPlatformSpecificSettings();
-    db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    db.setDatabaseName(databaseName);
+    //QDir tmpDir = QApplication::applicationFilePath();
+    // tmpDir.cdUp();
+    //tmpDir.cdUp();
+    //databaseName = tmpDir.path() + "/db/database.sqlite";
+    //db.conn = QSqlDatabase::addDatabase(DATABASE_DRIVER);
+    //db.conn.setDatabaseName(databaseName);
     if (!initCategoryStructure()) return;
      //To make sure that the program quits if database cannot be opened
     if (!initUI())
@@ -51,17 +55,17 @@ void MainWindow::closeEvent (QCloseEvent *event)
 
 bool MainWindow::initCategoryStructure()
 {
-    if (!db.isOpen() && !db.open()) {
+    if (!db.conn.isOpen() && !db.conn.open()) {
         ui->pushButton_Start->setEnabled(false);
-        auto errMsg = "Cannot open the databse file [" + db.databaseName()
-                      + "]\nInternal error message:\n" + db.lastError().text();
+        auto errMsg = QString("Cannot open the databse file [%1]: %2")
+                          .arg(db.conn.databaseName(), db.conn.lastError().text());
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
-        // QApplication::quit();
+        QApplication::quit();
         return false;
     }
 
-    QSqlQuery query = QSqlQuery(db);
+    QSqlQuery query = QSqlQuery(db.conn);
     query.prepare(
         R"(
 SELECT DISTINCT(category)
@@ -73,13 +77,13 @@ ORDER BY category DESC
         QMessageBox::critical(
             this,
             "Qrammer - Fatal Error",
-            "Cannot read the databse [" + db.databaseName()
+            "Cannot read the databse [" + db.conn.databaseName()
                 + "]. The database could be locked, empty or corrupt.\nInteral error info:\n"
                 + query.lastError().text());
         return false;
     }
         allCats = new QList<CategoryMetaData*>;
-        QSqlQuery query1 = QSqlQuery(db);
+        QSqlQuery query1 = QSqlQuery(db.conn);
         while (query.next()) {
             CategoryMetaData *t = new CategoryMetaData();
             t->name = query.value(0).toString();
@@ -114,9 +118,9 @@ bool MainWindow::initUI()
 {
     //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
     //db.setDatabaseName(databaseName);
-    if (!db.open()) {
+    if (!db.conn.open()) {
         auto errMsg = QString("Cannot open the databse [%1]. Internal error message: %2")
-                          .arg(db.databaseName(), db.lastError().text());
+                          .arg(db.conn.databaseName(), db.conn.lastError().text());
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
         QApplication::quit();
@@ -124,7 +128,7 @@ bool MainWindow::initUI()
     }
 
     QSqlQueryModel *model = new QSqlQueryModel();
-    QSqlQuery query = QSqlQuery(db);
+    auto query = QSqlQuery(db.conn);
 
     if (QGuiApplication::primaryScreen()->geometry().width() >= 1080) {
         auto stmt = R"***(
@@ -294,37 +298,6 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
         settings.setValue("Interval", QString::number(number.at(0).toInt()) + ", " + QString::number(number.at(1).toInt()));
     }
 }
-
-void MainWindow::initPlatformSpecificSettings()
-{    
-    if (QGuiApplication::platformName() == "android") {
-        databaseName = "/sdcard/qrammer/db/database.sqlite";
-
-        ui->label_NewKUCoeff->setVisible(false);
-        ui->lineEdit_NewKUCoeff->setVisible(false);
-        ui->label_Fontsize->setVisible(false);
-        ui->lineEdit_FontSize->setVisible(false);
-        ui->label_IntervalNum->setVisible(false);
-        ui->lineEdit_IntervalNum->setVisible(false);
-        ui->label_WindowStyle->setVisible(false);
-        ui->lineEdit_WindowStyle->setVisible(false);
-
-        ui->groupBox_DBContent->setVisible(false);
-
-        settings.setValue("FontSize", 12);
-        settings.setValue("Interval", "0,0");
-        settings.setValue("NewKUCoeff", 10);
-        settings.setValue("WindowStyle", 1111);
-        settings.sync();
-
-    } else {
-        QDir tmpDir = QApplication::applicationFilePath();
-        tmpDir.cdUp();
-        tmpDir.cdUp();
-        databaseName = tmpDir.path() + "/db/database.sqlite";
-    }
-}
-
 
 void MainWindow::on_lineEdit_ClientName_textChanged()
 {

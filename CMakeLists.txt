@@ -7,7 +7,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(QT NAMES Qt5 Qt6 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Gui Multimedia Network Sql Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Gui Multimedia Network Sql Widgets)
 find_package(spdlog CONFIG REQUIRED)
 
 include(cmake/compiler-flags.cmake)
@@ -55,6 +55,7 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/window_paramters.h
     cmake/compiler-flags.cmake cmake/sanitizers.cmake
     cmake/git.cmake
+    src/common/db.h src/common/db.cpp
 )
 
 
@@ -68,6 +69,8 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
 
     ./src/common/logger.h
     ./src/common/logger.cpp
+
+    ./src/common/db.h ./src/common/db.cpp
 
     resources/res.qrc
 )
@@ -88,7 +91,7 @@ target_link_libraries(qrammer PRIVATE
     Qt::Gui
     Qt::Multimedia
     Qt::Network
-    Qt::Sql
+    Qt6::Sql
     Qt::Widgets
     spdlog::spdlog
 )
@@ -97,9 +100,9 @@ target_link_libraries(qrammer-db-util PRIVATE
     Qt::Core
     Qt::Widgets
     Qt::Gui
-    Qt::Sql
+    Qt6::Sql
     spdlog::spdlog
 )
 
-file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/resources
-     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+#file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/resources
+#     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)

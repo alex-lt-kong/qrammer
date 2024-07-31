@@ -3,5 +3,6 @@
 #include <QCoreApplication>
 
 QString databaseName;
-QSqlDatabase db;
+QSqlDatabase sqlDb;
 QSettings settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME);
+DB db;
