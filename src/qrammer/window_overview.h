@@ -1,27 +1,20 @@
 #ifndef WINDOW_OVERVIEW_H
 #define WINDOW_OVERVIEW_H
 
-#include <QMainWindow>
-#include <QtDebug>
-#include <QList>
-#include <QMediaPlayer>
-#include <QSystemTrayIcon>
+#include "src/common/dto/category.h"
+
 #include <QDir>
+#include <QList>
+#include <QMainWindow>
+#include <QMediaPlayer>
 #include <QMenu>
 #include <QSwipeGesture>
-#include "snapshot.h"
+#include <QSystemTrayIcon>
+#include <QtDebug>
 
 namespace Ui {
 class MainWindow;
 }
-
-class CategoryMetaData {
-public:
-    QString name;
-    int number;
-    int ttsOption;
-    Snapshot* snapshot;
-};
 
 class MainWindow : public QMainWindow
 {
@@ -48,15 +41,14 @@ private slots:
     void on_lineEdit_NewKUCoeff_textChanged(const QString &arg1);
 
 private:
-    bool initCategoryStructure();
+    bool initCategories();
     bool initUI();
     void initSettings();
-    void initStatistics();
     void swipeTriggered(QSwipeGesture *gesture);
 
 private:
     Ui::MainWindow *ui;
-    QList<CategoryMetaData*> *allCats;
+    std::vector<Category> allCats;
 };
 
 #endif // WINDOW_OVERVIEW_H

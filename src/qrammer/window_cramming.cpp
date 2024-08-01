@@ -20,12 +20,6 @@ CrammingWindow::CrammingWindow(QWidget *parent)
     initTrayMenu();
     initPlatformSpecificSettings();
 
-    player = new QMediaPlayer(this);
-    // player->setVolume(50);
-    auto audioOutput = new QAudioOutput;
-    player->setAudioOutput(audioOutput);
-    audioOutput->setVolume(50);
-
     ranGen = QRandomGenerator(static_cast<uint>(QTime::currentTime().msec()));
 
     timerDelay = new QTimer(this);
@@ -98,40 +92,18 @@ void CrammingWindow::initUI()
 }
 
 void CrammingWindow::initPlatformSpecificSettings()
-{    
-    if (QGuiApplication::platformName() == "android") {
-        isAndroid = true;
-        parentDir = "/sdcard/Qrammer";
+{
+    QDir tmpDir = QApplication::applicationFilePath();
+    tmpDir.cdUp();
+    tmpDir.cdUp();
+    parentDir = tmpDir.path();
+    ui->pushButton_Skip->setVisible(false);
 
-        ui->textEdit_Response->setVisible(false);
-        ui->lineEdit_PassingScore->setVisible(false);
-
-        ui->progressBar_Learning->setVisible(false);
-
-        ui->label_PassingScore->setVisible(false);
-        ui->comboBox_Score->setEditable(false);
-        ui->label_Score->setVisible(false);
-        ui->label_NewScore->setVisible(false);
-
-    } else {
-        isAndroid = false;
-        QDir tmpDir = QApplication::applicationFilePath();
-        tmpDir.cdUp();
-        tmpDir.cdUp();
-        parentDir = tmpDir.path();
-        ui->pushButton_Skip->setVisible(false);
-    }
-
-    if (!isAndroid) {
-        QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
-        this->setStyleSheet(styleSheet);
-    } else {
-        QString styleSheet = QString("font-size:%1pt;").arg(13);
-        this->setStyleSheet(styleSheet);
-    }
+    QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
+    this->setStyleSheet(styleSheet);
 }
 
-void CrammingWindow::init(QList<CategoryMetaData *> *availableCat,
+void CrammingWindow::init(std::vector<Category> availableCat,
                           uint32_t newKuCoeff,
                           int interval,
                           int number,
@@ -144,8 +116,8 @@ void CrammingWindow::init(QList<CategoryMetaData *> *availableCat,
     this->windowStyle = windowStyle;
 
     totalKU = 0;
-    for (int i = 0; i < availableCat->count(); i++)
-        totalKU += availableCat->at(i)->number;
+    for (int i = 0; i < availableCat.size(); i++)
+        totalKU += availableCat[i].KuToCramCount;
 
     remainingKUsToCram = totalKU;
 
@@ -244,114 +216,61 @@ void CrammingWindow::on_pushButton_Check_clicked()
 
 bool CrammingWindow::finalizeTheKUJustBeingCrammed()
 {
-    if (availableCategory->at(currCatIndex)->number <= 0) {
-        QMessageBox::warning(this,
-                             "Qrammer - Warning",
-                             "Logic error, this should not happen at all!");
-        return false; // to be considered: return true or false?
-    }
+    assert(availableCategory[currCatIndex].KuToCramCount > 0);
 
-    double previousScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
-    int timesPracticed = cku.TimesPracticed + 1;
-
-    bool hasDeadline = (previousScore - cku.PassingScore < 0);
-    double addedDays = 0.0;
-
-    if (hasDeadline) {
-        // f(previousScore) = 1 / 10 * abs(previousScore - 40) * (previousScore - 40)
-        addedDays = previousScore;
-        addedDays = 0.1 * qAbs(addedDays - 40) * (addedDays - 40);
-        addedDays = addedDays > 0 ? addedDays : 0;
-    }
-
-    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    //db.setDatabaseName(databaseName);
-    while (true) {
-        if (!db.conn.isOpen() && !db.conn.open()) {
-            if (promptUserToRetryDBError("db.open()", db.conn.lastError().text()))
-                continue;
-            else
-                break;
-        }
-
-        QSqlQuery query = QSqlQuery(db.conn);
-        auto stmt = QString(R"**(
-UPDATE knowledge_units
-SET
-    last_practice_time = DATETIME('Now', 'localtime'),
-    previous_score = :previous_score,
-    question = :question,
-    answer = :answer,
-    times_practiced = :times_practiced,
-    passing_score = :passing_score,
-    deadline = %1,
-    client_name = :client_name,
-    time_used = time_used + :time_used,
-    answer_image = :answer_image
-WHERE id = :id
-)**")
-                        .arg(hasDeadline ? ("DATETIME('Now', 'localtime', '"
-                                            + QString::number(addedDays) + " day')")
-                                         : "null");
-        if (!query.prepare(stmt)) {
-            if (promptUserToRetryDBError(QString("query->prepare(%1)").arg(stmt),
-                                         query.lastError().text()))
-                continue;
-            else
-                break;
-        }
-        query.bindValue(":previous_score", previousScore);
-        query.bindValue(":question", ui->textEdit_Question->toPlainText());
-        query.bindValue(":answer", ui->textEdit_Answer->toPlainText());
-        query.bindValue(":times_practiced", timesPracticed);
-        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-        query.bindValue(":client_name", clientName);
-        query.bindValue(":time_used",
-                        (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300)
+    cku.ClientName = clientName;
+    cku.Question = ui->textEdit_Question->toPlainText();
+    cku.Answer = ui->textEdit_Answer->toPlainText();
+    cku.PassingScore = ui->lineEdit_PassingScore->text().toDouble();
+    cku.NewScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
+    cku.timeUsedSec += ((QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300)
                             ? 300
                             : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
-        query.bindValue(":id", cku.ID);
-        if (!ui->label_AnswerImage->pixmap().isNull()) {
-            QByteArray bArray;
-            QBuffer buffer(&bArray);
-            buffer.open(QIODevice::WriteOnly);
-            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
-            query.bindValue(":answer_image", bArray);
-        } else {
-            query.bindValue(":answer_image", QByteArray());
-        }
-
-        if (!query.exec()) {
-            if (promptUserToRetryDBError(QString("query.exec() the following statement: 1%")
-                                             .arg(stmt),
-                                         query.lastError().text()))
-                continue;
-            else break; // Need to consider whether this break is needed.
-        }
-
-        if (timesPracticed <= 1) {
-            query.prepare("UPDATE knowledge_units SET first_practice_time = DATETIME('Now', "
-                          "'localtime') WHERE id = :id");
-            query.bindValue(":id", cku.ID);
-            if (!query.exec()) {
-                if (promptUserToRetryDBError("open database", query.lastError().text()))
-                    continue;
-                else break; // Need to consider whether this break is needed.
-            }
-        }
-        query.finish();
-        break;
+    cku.TimesPracticed += 1;
+    if (cku.TimesPracticed <= 1) {
+        assert(cku.FirstPracticeTime.isNull());
+        cku.FirstPracticeTime = QDateTime::currentDateTime();
     }
 
-    availableCategory->at(currCatIndex)->number--;
+    if (cku.NewScore - cku.PassingScore < 0) {
+        double addedDays = 30 - (cku.PassingScore - cku.NewScore);
+        cku.Deadline = QDateTime::currentDateTime().addDays(addedDays);
+    } else {
+        cku.Deadline = QDateTime();
+        assert(cku.Deadline.isNull());
+    }
+
+    if (!ui->label_AnswerImage->pixmap().isNull()) {
+        QBuffer buffer(&cku.AnswerImageBytes);
+        buffer.open(QIODevice::WriteOnly);
+        ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
+    } else {
+        cku.AnswerImageBytes = QByteArray();
+    }
+
+    while (true) {
+        try {
+            db.updateKu(cku);
+            break;
+        } catch (const std::runtime_error &e) {
+            auto errMsg = std::string("Error db.updateKu(cku): ") + e.what();
+            SPDLOG_ERROR(errMsg);
+            if (promptUserToRetryDBError("finalizeTheKUJustBeingCrammed()",
+                                         QString::fromStdString(errMsg))) {
+                QApplication::quit();
+                return false;
+            }
+        }
+    }
+
+    availableCategory[currCatIndex].KuToCramCount--;
     remainingKUsToCram--;
 
-    for (int i = 0; i < availableCategory->count(); i++)
-        if (availableCategory->at(i)->number > 0)
+    for (int i = 0; i < availableCategory.size(); i++)
+        if (availableCategory[i].KuToCramCount > 0)
             return true;
 
     QApplication::quit();
-    // finishLearning();
     return false;
 }
 
@@ -364,10 +283,8 @@ void CrammingWindow::preKuLoadGuiUpdate()
     ui->textEdit_Answer->clear();
     ui->textEdit_Response->clear();
     ui->label_AnswerImage->setText("[Empty]");
-    if (!isAndroid)
-        ui->comboBox_Score->clearEditText();
-    else
-        ui->comboBox_Score->setCurrentIndex(0);
+
+    ui->comboBox_Score->clearEditText();
 
     ui->comboBox_Score->setEnabled(false);
     ui->label_NewScore->setText(": <null>");
@@ -379,6 +296,10 @@ void CrammingWindow::preKuLoadGuiUpdate()
 
 void CrammingWindow::postKuLoadGuiUpdate()
 {
+    ui->textEdit_Question->setPlainText(cku.Question);
+    adaptTexteditLineSpacing(ui->textEdit_Question);
+    adaptTexteditLineSpacing(ui->textEdit_Response);
+
     int winWidth = this->size().width();
     QFont myFont(ui->textEdit_Info->font());
     QFontMetrics fm(myFont);
@@ -387,13 +308,11 @@ void CrammingWindow::postKuLoadGuiUpdate()
     QString t, v1, v2;
     int idx = 0;
 
-    if (!isAndroid)
-        infos[idx++] = "ID: " + QString::number(cku.ID);
+    infos[idx++] = "ID: " + QString::number(cku.ID);
 
     v1 = "Cat: " + cku.Category;
     v2 = "Category: " + cku.Category;
-    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1
-                                                             : infos[idx++] = v2;
+    (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1 : infos[idx++] = v2;
 
     v1 = "Times: " + QString::number(cku.TimesPracticed);
     v2 = "Times Practiced: " + QString::number(cku.TimesPracticed);
@@ -401,8 +320,7 @@ void CrammingWindow::postKuLoadGuiUpdate()
 
     v1 = "Score: " + QString::number(cku.PreviousScore, 'f', 0);
     v2 = "Previous Score: " + QString::number(cku.PreviousScore, 'f', 1);
-    (isAndroid || fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1
-                                                             : infos[idx++] = v2;
+    (fm.horizontalAdvance(v2) > winWidth / 9.0) ? infos[idx++] = v1 : infos[idx++] = v2;
 
     v1 = "Insert: " + (cku.InsertTime.isNull() ? "nul" : cku.InsertTime.toString("yyyyMMdd"));
     v2 = "Insert: " + (cku.InsertTime.isNull() ? "<null>" : cku.InsertTime.toString("yyyy-MM-dd"));
@@ -418,8 +336,8 @@ void CrammingWindow::postKuLoadGuiUpdate()
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
         infos[idx++] = v1;
 
-    v1 = "Min Used: " + QString::number(cku.SecSpent / 60);
-    v2 = "Minutes Used: " + QString::number(cku.SecSpent / 60);
+    v1 = "Min Used: " + QString::number(cku.timeUsedSec / 60);
+    v2 = "Minutes Used: " + QString::number(cku.timeUsedSec / 60);
     if (fm.horizontalAdvance(v2) < winWidth * 1.1 / 9.0)
         infos[idx++] = v2;
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
@@ -445,7 +363,7 @@ void CrammingWindow::postKuLoadGuiUpdate()
     else if (fm.horizontalAdvance(v1) < winWidth * 2 / 9.0)
         infos[idx++] = v1;
 
-    if (isAndroid || winWidth <= 1200) {
+    if (winWidth <= 1200) {
         v1 = "Prog.: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
              + QString::number(totalKU);
         v2 = "Progress: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
@@ -455,11 +373,11 @@ void CrammingWindow::postKuLoadGuiUpdate()
         ui->progressBar_Learning->setVisible(false);
     } else {
         v1 = "Breakdown: ";
-        for (int j = 0; j < availableCategory->count(); j++) {
-            if (availableCategory->at(j)->number <= 0)
+        for (int j = 0; j < availableCategory.size(); j++) {
+            if (availableCategory[j].KuToCramCount <= 0)
                 continue;
-            v1 += availableCategory->at(j)->name + ": "
-                  + QString::number(availableCategory->at(j)->number);
+            v1 += availableCategory[j].name + ": "
+                  + QString::number(availableCategory[j].KuToCramCount);
             v1 += ", ";
         }
         infos[idx++] = v1.left(v1.length() - 2);
@@ -547,8 +465,8 @@ int CrammingWindow::pickCategoryforNewKU()
     int s = 0;
 
     // It tries to draw a category probabilistically using remaining KUs' distribution
-    for (int i = 0; i < availableCategory->count(); i++) {
-        s += availableCategory->at(i)->number;
+    for (int i = 0; i < availableCategory.size(); i++) {
+        s += availableCategory[i].KuToCramCount;
         if (r < s) {
             return i;
         }
@@ -578,20 +496,19 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         // let someone higher up the call stack handle it if they want
         throw;
     }
-    //
-    auto currCat = availableCategory->at(currCatIndex)->name;
+    auto currCat = availableCategory[currCatIndex];
 
     auto msg = QString("Remaining KUs to be crammed by category: ");
-    for (int i = 0; i < availableCategory->length(); i++) {
+    for (int i = 0; i < availableCategory.size(); i++) {
         msg += QString("%1: %2, ")
-                   .arg(availableCategory->at(i)->name,
-                        QString::number(availableCategory->at(i)->number));
+                   .arg(availableCategory[i].name,
+                        QString::number(availableCategory[i].KuToCramCount));
     }
     SPDLOG_INFO(msg.toStdString());
 
     int dueKuCountByCat = -1;
     try {
-        dueKuCountByCat = db.getDueKuCountByCategory(currCat);
+        dueKuCountByCat = db.getDueKuCountByCategory(currCat.name);
     } catch (const std::runtime_error &e) {
         QString errMsg = QString("Failed to query dueNumByCat: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
@@ -603,9 +520,8 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         return;
     }
 
-    int totalKuCount = -1;
     try {
-        totalKuCount = db.getTotalKUNumByCategory(currCat);
+        db.updateTotalKuCount(currCat);
     } catch (const std::runtime_error &e) {
         QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
@@ -618,11 +534,12 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
 
     double urgencyCoeff = 1
-                          - (qPow(static_cast<double>(totalKuCount - dueKuCountByCat) / totalKuCount,
-                                  0.0275 * totalKuCount + dueKuCountByCat)
+                          - (qPow(static_cast<double>(currCat.totalKuCount - dueKuCountByCat)
+                                      / currCat.totalKuCount,
+                                  0.0275 * currCat.totalKuCount + dueKuCountByCat)
                              * 0.65);
     SPDLOG_INFO("totalKuCount: {}, dueKuCountByCat: {}, urgencyCoef: {}",
-                totalKuCount,
+                currCat.totalKuCount,
                 dueKuCountByCat,
                 urgencyCoeff);
 
@@ -631,14 +548,14 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     try {
         if (r < urgencyCoeff) {
             SPDLOG_INFO("SELECTing an urgent unit");
-            cku = db.getUrgentKu(currCat);
+            cku = db.getUrgentKu(currCat.name);
         } else {
             if (ranGen.generate() % 100 <= newKuCoeff) {
                 SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
-                cku = db.getNewKu(currCat);
+                cku = db.getNewKu(currCat.name);
             } else {
                 SPDLOG_INFO("Randomly SELECTing a unit");
-                cku = db.getRandomKu(currCat);
+                cku = db.getRandomKu(currCat.name);
             }
         }
     } catch (const std::runtime_error &e) {
@@ -651,10 +568,6 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QApplication::exit();
         return;
     }
-
-    ui->textEdit_Question->setPlainText(cku.Question);
-    adaptTexteditLineSpacing(ui->textEdit_Question);
-    adaptTexteditLineSpacing(ui->textEdit_Response);
 }
 
 void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
@@ -731,24 +644,17 @@ void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
         textedit->setFixedHeight(textedit->height() + 1);
 
     ui->progressBar_Learning->setFixedHeight(ui->textEdit_Info->height());
-
-}
-
-void CrammingWindow::adaptSkipButton()
-{
-    if (ui->horizontalSpacer->geometry().width() > ui->pushButton_Skip->width() || isAndroid == true)
-        ui->pushButton_Skip->setVisible(true);
-    else if (ui->pushButton_Skip->isVisible() && ui->horizontalSpacer->geometry().width() <= 0) {
-        ui->pushButton_Skip->setVisible(false);
-    }
 }
 
 void CrammingWindow::finalizeCrammingSession()
 {
     QString temp;
-    for (int i = 0; i < availableCategory->count(); i++)
-        temp += availableCategory->at(i)->snapshot->getComparison(QGuiApplication::platformName() != "android") + "\n";
-
+    for (int i = 0; i < availableCategory.size(); i++) {
+        auto snap = Snapshot(availableCategory[i].name);
+        snap.category = availableCategory[i].name;
+        db.updateSnapshot(snap);
+        temp += snap - availableCategory[i].snapshot + "\n";
+    }
     QMessageBox *msg = new QMessageBox(QMessageBox::Information,
                                        "Qrammer - Result",
                                        temp,
@@ -946,7 +852,6 @@ void CrammingWindow::setWindowStyle()
     default:
         this->showMaximized();
     }
-    adaptSkipButton();
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);        // To make sure the resize is implemented before next step.
 }
@@ -1022,8 +927,6 @@ void CrammingWindow::resizeEvent(QResizeEvent *event)
     adaptTexteditHeight(ui->textEdit_Question);
     adaptTexteditHeight(ui->textEdit_Response);
     adaptTexteditHeight(ui->textEdit_Info);
-
-    adaptSkipButton();
 }
 
 void CrammingWindow::keyPressEvent(QKeyEvent *event)

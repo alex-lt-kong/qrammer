@@ -13,11 +13,10 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    if (!initCategoryStructure()) return;
-     //To make sure that the program quits if database cannot be opened
+    if (!initCategories())
+        return;
     if (!initUI())
         return;
-    initStatistics();
     initSettings();
 }
 
@@ -47,131 +46,60 @@ void MainWindow::closeEvent (QCloseEvent *event)
     }
 }
 
-bool MainWindow::initCategoryStructure()
+bool MainWindow::initCategories()
 {
-    if (!db.conn.isOpen() && !db.conn.open()) {
+    try {
+        allCats = db.getAllCategories();
+    } catch (const std::runtime_error &e) {
         ui->pushButton_Start->setEnabled(false);
-        auto errMsg = QString("Cannot open the databse file [%1]: %2")
-                          .arg(db.conn.databaseName(), db.conn.lastError().text());
+        auto errMsg = QString("db.getAllCategories() failed: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
         QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
         QApplication::quit();
         return false;
     }
-
-    QSqlQuery query = QSqlQuery(db.conn);
-    query.prepare(
-        R"(
-SELECT DISTINCT(category)
-FROM knowledge_units
-WHERE is_shelved = 0
-ORDER BY category DESC
-)");
-    if (!query.exec()) {
-        QMessageBox::critical(
-            this,
-            "Qrammer - Fatal Error",
-            "Cannot read the databse [" + db.conn.databaseName()
-                + "]. The database could be locked, empty or corrupt.\nInteral error info:\n"
-                + query.lastError().text());
-        return false;
+    for (int i = 0; i < allCats.size(); i++) {
+        ui->lineEdit_NumberstoLearn->setPlaceholderText(
+            ui->lineEdit_NumberstoLearn->placeholderText() + allCats[i].name
+            + (i < allCats.size() - 1 ? ", " : ""));
     }
-        allCats = new QList<CategoryMetaData*>;
-        QSqlQuery query1 = QSqlQuery(db.conn);
-        while (query.next()) {
-            CategoryMetaData *t = new CategoryMetaData();
-            t->name = query.value(0).toString();
-            t->number = 0;
-
-            query1.prepare("SELECT tts_option FROM category_info WHERE name = :name");
-            query1.bindValue(":name", t->name);
-            query1.exec();
-
-            if (query1.next()) {
-                if (query1.value(0).toString() == "question")
-                    t->ttsOption = 1;
-                else if (query1.value(0).toString() == "answer")
-                    t->ttsOption = 2;
-                else
-                     t->ttsOption = 0;
-            } else {
-                t->ttsOption = 0;
-            }
-
-            allCats->append(t);
-        }
-        for (int i = 0; i < allCats->count(); i++) {
-            ui->lineEdit_NumberstoLearn->setPlaceholderText(
-                        ui->lineEdit_NumberstoLearn->placeholderText() + allCats->at(i)->name + (i < allCats->count() - 1 ? ", " : "")
-            );
-        }
-        return true;
+    for (int i = 0; i < allCats.size(); i++) {
+        ui->plainTextEdit_Statistics->appendPlainText(allCats[i].snapshot.getSnapshotString());
+    }
+    QFont font("Monospace");
+    font.setStyleHint(QFont::TypeWriter);
+    ui->plainTextEdit_Statistics->setFont(font);
+    return true;
 }
 
 bool MainWindow::initUI()
 {
-    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    //db.setDatabaseName(databaseName);
-    if (!db.conn.open()) {
-        auto errMsg = QString("Cannot open the databse [%1]. Internal error message: %2")
-                          .arg(db.conn.databaseName(), db.conn.lastError().text());
+    QSqlQueryModel *model = new QSqlQueryModel(this);
+    QSqlQuery query;
+    try {
+        query = db.getQueryForKuTableView(QGuiApplication::primaryScreen()->geometry().width()
+                                          >= 1080);
+    } catch (const std::runtime_error &e) {
+        QString errMsg = QString("db.getQueryForKuTableView() failed: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
-        QApplication::quit();
+        QMessageBox::critical(this, "Qrammer", errMsg, QMessageBox::Ok);
+        QApplication::exit();
         return false;
     }
-
-    QSqlQueryModel *model = new QSqlQueryModel();
-    auto query = QSqlQuery(db.conn);
-
-    if (QGuiApplication::primaryScreen()->geometry().width() >= 1080) {
-        auto stmt = R"***(
-SELECT
-    id,
-    SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question', SUBSTR(REPLACE(REPLACE(answer, CHAR(10), ''), CHAR(9), ''), 0, 40) || '...' AS 'Answer',
-    ROUND(previous_score, 1) AS 'Score' ,
-    STRFTIME('%Y-%m-%d', insert_time) AS 'Insert',
-    STRFTIME('%Y-%m-%d', first_practice_time) AS 'First Practice',
-    last_practice_time AS 'Last Practice',
-    STRFTIME('%Y-%m-%d', deadline) AS 'Deadline'
-FROM knowledge_units
-WHERE is_shelved = 0
-ORDER BY last_practice_time DESC
-)***";
-        query.prepare(stmt);
-    } else {
-        auto stmt = R"***(
-SELECT
-    SUBSTR(REPLACE(REPLACE(question, CHAR(10), ''), CHAR(9), ''), 0, 35) || '...' AS 'Question',
-    STRFTIME('%m-%d %H:%M', last_practice_time) AS 'Last Practice'
-FROM knowledge_units
-WHERE is_shelved = 0
-ORDER BY last_practice_time DESC
-)***";
-        query.prepare(stmt);
-    }
-    query.exec();
-
     model->setQuery(std::move(query));
     ui->tableView_KU->setModel(model);
     ui->tableView_KU->setSortingEnabled(true);
     ui->tableView_KU->horizontalHeader()->setSectionsClickable(1);
-
     ui->tableView_KU->setSelectionBehavior(QAbstractItemView::SelectRows);
-
     ui->tableView_KU->resizeColumnsToContents();
     ui->tableView_KU->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
 
     ui->tableView_KU->show();
 
-    // This new then delete pattern is used in official examples...
-    // https://doc.qt.io/qt-6/qabstractitemview.html#setModel
     QSortFilterProxyModel *m = new QSortFilterProxyModel(this);
     m->setDynamicSortFilter(true);
     m->setSourceModel(model);
     ui->tableView_KU->setModel(m);
-    // delete m;
-    //delete model;
     ui->tableView_KU->setSortingEnabled(true);
 
     ui->tableView_KU->grabGesture(Qt::SwipeGesture);
@@ -191,44 +119,17 @@ void MainWindow::initSettings()
     ui->lineEdit_WindowStyle->setText(settings.value("WindowStyle", "1111").toString());
 }
 
-void MainWindow::initStatistics()
-{
-    // QMap<QString, int>::iterator i;
-    for (int i = 0; i < allCats->count(); i++) {
-        allCats->at(i)->snapshot = new Snapshot(allCats->at(i)->name);
-        ui->plainTextEdit_Statistics->appendPlainText(allCats->at(i)->snapshot->getSnapshot());
-    }
-    QFont font("Monospace");
-    font.setStyleHint(QFont::TypeWriter);
-    ui->plainTextEdit_Statistics->setFont(font);
-
-    /*
-    if (QGuiApplication::platformName() == "windows" || QGuiApplication::platformName() == "xcb") {
-        // XCB is the X11 plugin used on regular desktop Linux platforms.
-        // ui->plainTextEdit_Statistics->setFont(QFont("Noto Sans Mono CJK SC Regular"));
-    } else if (QGuiApplication::platformName() == "android") {
-        // ui->plainTextEdit_Statistics->setFont(QFont("Droid Sans Mono"));
-    }
-    */
-}
-
 void MainWindow::on_pushButton_Start_clicked()
 {
     SPDLOG_INFO("Cramming session about to start");
     ui->pushButton_Start->setEnabled(false); // To avoid this event from being triggered twice (which would initiate two practice windows)
-
-    QString kuToCramByCatetory;
-    for (int i = 0; i < allCats->count(); i++)
-        kuToCramByCatetory += allCats->at(i)->name + ": "
-                              + QString::number(allCats->at(i)->ttsOption) + ", ";
-    SPDLOG_INFO("TTS Option by category: {}", kuToCramByCatetory.toStdString());
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_NumberstoLearn->text().split(rx);
 
     int t = 0;
-    for (int i = 0; i < number.count() && i < allCats->count(); i++) {
-        allCats->at(i)->number = number.at(i).toInt();
-        t += allCats->at(i)->number;
+    for (int i = 0; i < number.count() && i < allCats.size(); i++) {
+        allCats[i].KuToCramCount = number.at(i).toInt();
+        t += allCats.at(i).KuToCramCount;
     }
 
     if (t == 0) {

@@ -1,9 +1,8 @@
 #ifndef WINDOW_CRAMMING_H
 #define WINDOW_CRAMMING_H
 
-#include "knowledge_unit.h"
-#include "src/qrammer/window_paramters.h"
-#include "window_overview.h"
+#include "src/common/dto/category.h"
+#include "src/common/dto/knowledge_unit.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -31,7 +30,7 @@ class CrammingWindow : public QMainWindow
 public:
     explicit CrammingWindow(QWidget *parent = nullptr);
     ~CrammingWindow();
-    void init(QList<CategoryMetaData *> *availableCategory,
+    void init(std::vector<Category> availableCategory,
               uint32_t newKuCoeff,
               int nnterval,
               int number,
@@ -67,9 +66,9 @@ protected:
 private:
     Ui::CrammingWindow *ui;
     // cku: current knowledge unit
-    struct knowledge_unit cku;
+    struct KnowledgeUnit cku;
 
-    QList<CategoryMetaData*> *availableCategory;
+    std::vector<Category> availableCategory;
     QHash<QString, QString> *SearchOptions;
 
     QMenu *menuQuestion;
@@ -82,7 +81,6 @@ private:
     int number;
     int windowStyle;
     QString parentDir;
-    bool isAndroid;
 
     int concurrentEventOnQuestionTextChanged = 0;
 
@@ -100,14 +98,12 @@ private:
     double calculateNewPreviousScore(double newScore);
     void adaptTexteditHeight(QTextEdit *plaintextedit);
     void adaptTexteditLineSpacing(QTextEdit *textedit);
-    void adaptSkipButton();
     void finalizeCrammingSession();
     void initTrayMenu();
     void initContextMenu();
     void showContextMenu_Common(QTextEdit *edit, QMenu* menu, const QPoint &pt);
     void setWindowStyle();
     QString convertStringToFilename(QString name);
-    // void handleTTS(bool isQuestion);
     int pickCategoryforNewKU();
     bool downloadTTSFile(QString text);
     bool promptUserToRetryDBError(QString operationName, QString lastError);
@@ -125,7 +121,6 @@ private:
     int currentScore;
     int remainingKUsToCram;
 
-    QMediaPlayer *player;
     int secDelayed;
     QTimer *timerDelay;
 
