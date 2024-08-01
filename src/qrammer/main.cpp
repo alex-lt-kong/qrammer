@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
     w.showMaximized();
     // It appears that this line is needed so that the program would not quit if users select NO at the break reminder.
     a.setQuitOnLastWindowClosed(false);
-
-    return a.exec();
+    auto retval = a.exec();
+    SPDLOG_INFO("Qrammer exited");
+    return retval;
 }

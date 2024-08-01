@@ -137,6 +137,7 @@ void CrammingWindow::on_pushButton_Next_clicked()
 
     if (!finalizeTheKUJustBeingCrammed())
         return;
+    spdlog::default_logger()->flush();
 
     if (interval > 0 && (totalKU - remainingKUsToCram) > 0
         && (totalKU - remainingKUsToCram) % number == 0) {
@@ -458,6 +459,7 @@ void CrammingWindow::initNextKU()
     postKuLoadGuiUpdate();
     onKuLoadCallback();
     kuStartLearningTime = QDateTime::currentSecsSinceEpoch();
+    spdlog::default_logger()->flush();
 }
 
 int CrammingWindow::pickCategoryforNewKU()
@@ -569,6 +571,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QApplication::exit();
         return;
     }
+    spdlog::default_logger()->flush();
 }
 
 void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
@@ -649,16 +652,17 @@ void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
 
 void CrammingWindow::finalizeCrammingSession()
 {
-    QString temp;
+    QString snapDiffStr;
     for (int i = 0; i < availableCategory.size(); i++) {
         auto snap = Snapshot(availableCategory[i].name);
         snap.category = availableCategory[i].name;
         db.updateSnapshot(snap);
-        temp += snap - availableCategory[i].snapshot + "\n";
+        snapDiffStr += snap - availableCategory[i].snapshot + "\n";
     }
+    SPDLOG_INFO("snapDiffStr: {}", snapDiffStr.toStdString());
     QMessageBox *msg = new QMessageBox(QMessageBox::Information,
                                        "Qrammer - Result",
-                                       temp,
+                                       snapDiffStr,
                                        QMessageBox::Ok,
                                        this);
 
