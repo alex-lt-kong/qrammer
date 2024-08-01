@@ -45,12 +45,10 @@ WHERE
     LENGTH(deadline) > 0 AND
     is_shelved = 0
 )***";
-    auto query = prepareQuery(stmt);
+    openConnection();
+    auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
-
-    if (!query.exec()) {
-        throw runtime_error(query.lastError().text().toStdString());
-    }
+    execQuery(query);
     if (query.next()) {
         dueNumByCat = query.value(0).toInt();
         SPDLOG_INFO("dueNum of category [{}]: {}", category.toStdString(), dueNumByCat);
@@ -68,12 +66,9 @@ SELECT COUNT(*)
 FROM knowledge_units
 WHERE category = :category AND is_shelved = 0
 )***";
-    auto query = prepareQuery(stmt);
+    auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category.name);
-
-    if (!query.exec()) {
-        throw runtime_error(query.lastError().text().toStdString());
-    }
+    execQuery(query);
     if (query.next()) {
         totalKUCount = query.value(0).toInt();
         SPDLOG_INFO("totalKUCount of category [{}]: {}", category.name.toStdString(), totalKUCount);
@@ -91,7 +86,6 @@ std::string DB::getDatabasePath()
 
 struct KnowledgeUnit DB::getUrgentKu(const QString &category)
 {
-    openConnection();
     auto stmt = QString(R"***(
 SELECT %1
 FROM knowledge_units
@@ -104,10 +98,11 @@ ORDER BY RANDOM()
 LIMIT 1
 )***")
                     .arg(kuColumns);
-    auto query = prepareQuery(stmt);
+    auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
     if (!query.exec()) {
-        throw runtime_error(query.lastError().text().toStdString());
+        throw runtime_error("Failed to query.exec() for getUrgentKu(): "
+                            + query.lastError().text().toStdString());
     }
     if (query.first()) {
         return fillinKu(query);
@@ -118,7 +113,6 @@ LIMIT 1
 
 struct KnowledgeUnit DB::getNewKu(const QString &category)
 {
-    openConnection();
     auto stmt = QString(R"***(
 SELECT %1
 FROM knowledge_units
@@ -130,7 +124,8 @@ ORDER BY RANDOM()
 LIMIT 1
 )***")
                     .arg(kuColumns);
-    auto query = prepareQuery(stmt);
+    openConnection();
+    auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
     if (!query.exec()) {
         auto errMsg = query.lastError().text().toStdString();
@@ -146,24 +141,29 @@ LIMIT 1
     }
 }
 
-struct KnowledgeUnit DB::getRandomKu(const QString &category)
+struct KnowledgeUnit DB::getRandomOldKu(const Category &cat)
 {
-    openConnection();
     auto stmt = QString(R"***(
-SELECT %1
-FROM knowledge_units
-WHERE
-    category = :category AND
-    is_shelved = 0
-ORDER BY RANDOM()
-LIMIT 1;
+SELECT *
+FROM
+(
+    SELECT %1
+    FROM  knowledge_units
+    WHERE
+        category = :category AND
+        times_practiced > 0 AND
+        is_shelved = 0        
+    ORDER BY (previous_score - passing_score) ASC
+    LIMIT (SELECT ABS(RANDOM()) % (%2) + %3 + 1)
+)
+ORDER BY RANDOM() LIMIT 1
 )***")
-                    .arg(kuColumns);
-    auto query = prepareQuery(stmt);
-    query.bindValue(":category", category);
-    if (!query.exec()) {
-        throw runtime_error(query.lastError().text().toStdString());
-    }
+                    .arg(kuColumns)
+                    .arg(cat.totalKuCount)
+                    .arg(cat.dueKuCount);
+    auto query = openConnThenPrepareQuery(stmt);
+    query.bindValue(":category", cat.name);
+    execQuery(query);
     if (query.first()) {
         return fillinKu(query);
     } else {
@@ -178,14 +178,21 @@ void DB::openConnection()
     }
 }
 
-QSqlQuery DB::prepareQuery(const QString &stmt)
+QSqlQuery DB::openConnThenPrepareQuery(const QString &stmt)
 {
     openConnection();
     auto query = QSqlQuery(conn);
     if (!query.prepare(stmt)) {
-        throw runtime_error(query.lastError().text().toStdString());
+        throw runtime_error("Failed to query.prepare(" + stmt.toStdString()
+                            + "): " + query.lastError().text().toStdString());
     }
     return query;
+}
+
+void DB::execQuery(QSqlQuery &query)
+{
+    if (!query.exec())
+        throw runtime_error("Failed to query.exec(): " + query.lastError().text().toStdString());
 }
 
 struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
@@ -211,9 +218,7 @@ struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
 
 QSqlQuery DB::getQueryForKuTableView(const bool isWidthScreen)
 {
-    openConnection();
     QString stmt;
-    auto query = QSqlQuery(conn);
     if (isWidthScreen) {
         stmt = R"***(
 SELECT
@@ -238,32 +243,22 @@ WHERE is_shelved = 0
 ORDER BY last_practice_time DESC
 )***";
     }
-    if (!query.prepare(stmt))
-        throw runtime_error("Failed to query.prepare(stmt) for getQueryForKuTableView(): "
-                            + query.lastError().text().toStdString());
 
-    if (!query.exec())
-        throw runtime_error("Failed to query.prepare(stmt) for getQueryForKuTableView(): "
-                            + query.lastError().text().toStdString());
+    auto query = openConnThenPrepareQuery(stmt);
+    execQuery(query);
     return query;
 }
 
 std::vector<Category> DB::getAllCategories()
 {
-    openConnection();
-    auto query = QSqlQuery(conn);
     auto stmt = R"(
 SELECT DISTINCT(category)
 FROM knowledge_units
 WHERE is_shelved = 0
 ORDER BY category DESC
 )";
-    if (!query.prepare(stmt))
-        throw runtime_error("Failed to query.prepare(stmt) for getAllCategories: "
-                            + query.lastError().text().toStdString());
-    if (!query.exec())
-        throw runtime_error("Failed to query.exec() for getAllCategories: "
-                            + query.lastError().text().toStdString());
+    auto query = openConnThenPrepareQuery(stmt);
+    execQuery(query);
     auto allCats = std::vector<Category>();
     while (query.next()) {
         struct Category t;
@@ -387,8 +382,6 @@ void DB::updateSnapshot(Snapshot &snap)
 
 void DB::updateKu(const struct KnowledgeUnit &ku)
 {
-    openConnection();
-    auto query = QSqlQuery(conn);
     auto stmt = QString(R"**(
 UPDATE knowledge_units
 SET
@@ -405,9 +398,7 @@ SET
     answer_image = :answer_image
 WHERE id = :id
 )**");
-    if (!query.prepare(stmt))
-        throw runtime_error("Failed to query.prepare(stmt) for updateKu(): "
-                            + query.lastError().text().toStdString());
+    auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":previous_score", ku.NewScore);
     query.bindValue(":question", ku.Question);
     query.bindValue(":answer", ku.Answer);
@@ -419,8 +410,5 @@ WHERE id = :id
     query.bindValue(":deadline", ku.Deadline);
     query.bindValue(":id", ku.ID);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
-
-    if (!query.exec())
-        throw runtime_error("Failed to query.exec() for updateKu(): "
-                            + query.lastError().text().toStdString());
+    execQuery(query);
 }

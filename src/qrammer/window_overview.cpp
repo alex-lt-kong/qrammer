@@ -50,7 +50,7 @@ bool MainWindow::initCategories()
 {
     try {
         allCats = db.getAllCategories();
-    } catch (const std::runtime_error &e) {
+    } catch (const std::exception &e) {
         ui->pushButton_Start->setEnabled(false);
         auto errMsg = QString("db.getAllCategories() failed: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());

@@ -506,9 +506,8 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
     SPDLOG_INFO(msg.toStdString());
 
-    int dueKuCountByCat = -1;
     try {
-        dueKuCountByCat = db.getDueKuCountByCategory(currCat.name);
+        currCat.dueKuCount = db.getDueKuCountByCategory(currCat.name);
     } catch (const std::runtime_error &e) {
         QString errMsg = QString("Failed to query dueNumByCat: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
@@ -534,28 +533,29 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     }
 
     double urgencyCoeff = 1
-                          - (qPow(static_cast<double>(currCat.totalKuCount - dueKuCountByCat)
+                          - (qPow(static_cast<double>(currCat.totalKuCount - currCat.dueKuCount)
                                       / currCat.totalKuCount,
-                                  0.0275 * currCat.totalKuCount + dueKuCountByCat)
+                                  0.0275 * currCat.totalKuCount + currCat.dueKuCount)
                              * 0.65);
-    SPDLOG_INFO("totalKuCount: {}, dueKuCountByCat: {}, urgencyCoef: {}",
+    SPDLOG_INFO("totalKuCount: {}, dueKuCountByCat: {}, urgencyCoef: {:.5f}",
                 currCat.totalKuCount,
-                dueKuCountByCat,
+                currCat.dueKuCount,
                 urgencyCoeff);
 
     double r = ranGen.generateDouble();
-    SPDLOG_INFO("A random number in [0, 1): {}", r);
+    SPDLOG_INFO("A random number r in [0, 1): {:.5f}", r);
     try {
         if (r < urgencyCoeff) {
-            SPDLOG_INFO("SELECTing an urgent unit");
+            SPDLOG_INFO("r < urgencyCoeff, SELECTing an urgent unit");
             cku = db.getUrgentKu(currCat.name);
         } else {
+            SPDLOG_INFO("r >= urgencyCoeff, urgent unit SELECTion skipped");
             if (ranGen.generate() % 100 <= newKuCoeff) {
-                SPDLOG_INFO("Not SELECTing an urgent unit, SELECTing a new unit");
+                SPDLOG_INFO("SELECTing a new unit");
                 cku = db.getNewKu(currCat.name);
             } else {
                 SPDLOG_INFO("Randomly SELECTing a unit");
-                cku = db.getRandomKu(currCat.name);
+                cku = db.getRandomOldKu(currCat);
             }
         }
     } catch (const std::runtime_error &e) {

@@ -8,6 +8,7 @@ struct Category
     QString name;
     size_t KuToCramCount;
     size_t totalKuCount;
+    size_t dueKuCount;
     Snapshot snapshot;
 };
 

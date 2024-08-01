@@ -19,10 +19,11 @@ public:
     void updateSnapshot(Snapshot &snap);
     struct KnowledgeUnit getUrgentKu(const QString &category);
     struct KnowledgeUnit getNewKu(const QString &category);
-    struct KnowledgeUnit getRandomKu(const QString &category);
+    struct KnowledgeUnit getRandomOldKu(const Category &cat);
     void updateKu(const struct KnowledgeUnit &ku);
     void openConnection();
-    QSqlQuery prepareQuery(const QString &stmt);
+    QSqlQuery openConnThenPrepareQuery(const QString &stmt);
+    void execQuery(QSqlQuery &query);
     std::string getDatabasePath();
     std::vector<Category> getAllCategories();
     QSqlQuery getQueryForKuTableView(const bool isWidthScreen);
