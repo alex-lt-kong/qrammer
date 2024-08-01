@@ -93,12 +93,13 @@ void CrammingWindow::initUI()
 
 void CrammingWindow::initPlatformSpecificSettings()
 {
+    /*
     QDir tmpDir = QApplication::applicationFilePath();
     tmpDir.cdUp();
     tmpDir.cdUp();
     parentDir = tmpDir.path();
-    ui->pushButton_Skip->setVisible(false);
-
+    // ui->pushButton_Skip->setVisible(false);
+    */
     QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
     this->setStyleSheet(styleSheet);
 }
