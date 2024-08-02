@@ -69,7 +69,7 @@ private:
     struct KnowledgeUnit cku;
 
     std::vector<Category> availableCategory;
-    QHash<QString, QString> *SearchOptions;
+    QHash<QString, QString> SearchOptions;
 
     QMenu *menuQuestion;
     QMenu *menuAnswer;

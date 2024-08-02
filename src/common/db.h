@@ -27,13 +27,13 @@ public:
     std::string getDatabasePath();
     std::vector<Category> getAllCategories();
     QSqlQuery getQueryForKuTableView(const bool isWidthScreen);
+    std::vector<std::tuple<QString, QString>> getSearchOptions();
     QSqlDatabase conn;
-    // TODO: move kuColumns to private after refactoring is done
-    QString kuColumns;
 
 private:
     std::string databaseName;
     struct KnowledgeUnit fillinKu(QSqlQuery &query);
+    QString kuColumns;
 };
 
 #endif // DB_H

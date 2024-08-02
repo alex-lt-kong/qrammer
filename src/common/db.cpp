@@ -412,3 +412,19 @@ WHERE id = :id
     query.bindValue(":answer_image", ku.AnswerImageBytes);
     execQuery(query);
 }
+
+std::vector<std::tuple<QString, QString>> DB::getSearchOptions()
+{
+    auto stmt = R"(
+SELECT name, url
+FROM search_options
+ORDER BY id ASC
+)";
+    auto query = openConnThenPrepareQuery(stmt);
+    execQuery(query);
+    auto options = std::vector<std::tuple<QString, QString>>();
+    while (query.next()) {
+        options.emplace_back(query.value(0).toString(), query.value(1).toString());
+    }
+    return options;
+}

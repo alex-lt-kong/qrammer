@@ -711,29 +711,22 @@ void CrammingWindow::initContextMenu()
     menuAnswer->addSeparator();
     menuBlank->addSeparator();
 
-    SearchOptions = new QHash<QString, QString>;
-    //auto db = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    // db.setDatabaseName(databaseName);
-    if (db.conn.isOpen() || db.conn.open()) {
-        auto query = QSqlQuery(db.conn);
-
-        query.prepare("SELECT name, url FROM search_options ORDER BY id ASC");
-        query.exec();
-
-        while (query.next()) {
-            SearchOptions->insert(query.value(0).toString(), query.value(1).toString());
-
-            QAction* actionSearchOption = new QAction(ui->textEdit_Question);
-            actionSearchOption->setText(query.value(0).toString());
+    SearchOptions = QHash<QString, QString>();
+    try {
+        auto options = db.getSearchOptions();
+        SearchOptions = QHash<QString, QString>();
+        for (auto &[name, url] : options) {
+            SearchOptions.insert(name, url);
+            QAction *actionSearchOption = new QAction(ui->textEdit_Question);
+            actionSearchOption->setText(name);
             menuQuestion->addAction(actionSearchOption);
             menuAnswer->addAction(actionSearchOption);
             menuBlank->addAction(actionSearchOption);
         }
-
-    } else {
-        QMessageBox::warning(this,
-                             "Warning",
-                             "Cannot open the databse:\n" + db.conn.lastError().text());
+    } catch (const std::runtime_error &e) {
+        auto errMsg = QString("getSearchOptions failed: %1").arg(e.what());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - critical", errMsg);
         QApplication::quit();
         return;
     }
@@ -817,9 +810,8 @@ void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const 
         if (selectedItem->text() == "Skip this KU")
             initNextKU();
 
-        if (SearchOptions->contains(selectedItem->text()))
-        {
-            QString link = SearchOptions->value(selectedItem->text());
+        if (SearchOptions.contains(selectedItem->text())) {
+            QString link = SearchOptions.value(selectedItem->text());
             link.replace(QString("SEARCHTEXT"), QString(edit->textCursor().selectedText()));
             QDesktopServices::openUrl(QUrl(link));
             QApplication::clipboard()->setText(edit->textCursor().selectedText());

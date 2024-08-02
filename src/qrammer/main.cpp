@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
     binPath.cdUp();
     auto dbPath = binPath.filesystemAbsolutePath() / "db/database.sqlite";
     SPDLOG_INFO("Database path: {}", dbPath.string());
+    spdlog::default_logger()->flush();
     db = DB(dbPath);
 
     MainWindow w;
