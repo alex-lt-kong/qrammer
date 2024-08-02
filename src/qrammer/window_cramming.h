@@ -89,7 +89,7 @@ private:
     void initStatusBar();
     void initUI();
     void initPlatformSpecificSettings();
-    void loadNewKU(int depth);
+    void loadNextKu(int depth);
     /**
      * @brief
      * @return whether the program should start loading next KU

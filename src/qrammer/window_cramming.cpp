@@ -459,7 +459,7 @@ void CrammingWindow::onKuLoadCallback()
 void CrammingWindow::initNextKU()
 {
     preKuLoadGuiUpdate();
-    loadNewKU(0);
+    loadNextKu(0);
     postKuLoadGuiUpdate();
     onKuLoadCallback();
     kuStartLearningTime = QDateTime::currentSecsSinceEpoch();
@@ -481,10 +481,10 @@ int CrammingWindow::pickCategoryforNewKU()
     throw std::runtime_error("pickCategoryforNewKU() failed");
 }
 
-void CrammingWindow::loadNewKU(int recursion_depth)
+void CrammingWindow::loadNextKu(int recursion_depth)
 {
     auto max_retry = 100;
-    SPDLOG_INFO("Loading new knowledge unit (recursion_depth: {}, max_depth: {}) ",
+    SPDLOG_INFO("Loading next knowledge unit (recursion_depth: {}, max_depth: {}) ",
                 recursion_depth,
                 max_retry);
     if (recursion_depth > max_retry) {
@@ -519,7 +519,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QString errMsg = QString("Failed to query dueNumByCat: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
         if (promptUserToRetryDBError("getDueNumByCategory()", errMsg)) {
-            loadNewKU(++recursion_depth);
+            loadNextKu(++recursion_depth);
             return;
         }
         QApplication::exit();
@@ -532,7 +532,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QString errMsg = QString("Failed to query TotalNum: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
         if (promptUserToRetryDBError("getTotalKUNumByCategory()", errMsg)) {
-            loadNewKU(++recursion_depth);
+            loadNextKu(++recursion_depth);
             return;
         }
         QApplication::exit();
@@ -569,7 +569,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
         QString errMsg = QString("Failed to select a knowledge unit: %1").arg(e.what());
         SPDLOG_ERROR(errMsg.toStdString());
         if (promptUserToRetryDBError("Select a knowledge unit from database", errMsg)) {
-            loadNewKU(++recursion_depth);
+            loadNextKu(++recursion_depth);
             return;
         }
         QApplication::exit();
