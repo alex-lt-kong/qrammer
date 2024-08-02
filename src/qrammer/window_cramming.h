@@ -117,9 +117,8 @@ private:
     void restoreWindowLayout();
 
     int currCatIndex;
-    int totalKU;
-    int currentScore;
-    int remainingKUsToCram;
+    size_t totalKuToCram;
+    size_t remainingKUsToCram;
 
     int secDelayed;
     QTimer *timerDelay;

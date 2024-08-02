@@ -206,6 +206,7 @@ void MainWindow::on_pushButton_Quit_pressed()
 
 void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
 {
+    (void)arg1;
     settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
     initSettings();
 }

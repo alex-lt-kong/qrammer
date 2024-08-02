@@ -116,11 +116,11 @@ void CrammingWindow::init(std::vector<Category> availableCat,
     this->number = number;
     this->windowStyle = windowStyle;
 
-    totalKU = 0;
-    for (int i = 0; i < availableCat.size(); i++)
-        totalKU += availableCat[i].KuToCramCount;
+    totalKuToCram = 0;
+    for (size_t i = 0; i < availableCat.size(); i++)
+        totalKuToCram += availableCat[i].KuToCramCount;
 
-    remainingKUsToCram = totalKU;
+    remainingKUsToCram = totalKuToCram;
 
     fillinThenExecuteCommand("Init");
 }
@@ -139,8 +139,8 @@ void CrammingWindow::on_pushButton_Next_clicked()
         return;
     spdlog::default_logger()->flush();
 
-    if (interval > 0 && (totalKU - remainingKUsToCram) > 0
-        && (totalKU - remainingKUsToCram) % number == 0) {
+    if (interval > 0 && (totalKuToCram - remainingKUsToCram) > 0
+        && (totalKuToCram - remainingKUsToCram) % number == 0) {
         startInterval();
     } else {
         initNextKU();
@@ -163,8 +163,8 @@ void CrammingWindow::tmrInterval()
     } else {
         secDelayed++;
         auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: %3 sec")
-                           .arg(QString::number(totalKU - remainingKUsToCram),
-                                QString::number(totalKU),
+                           .arg(QString::number(totalKuToCram - remainingKUsToCram),
+                                QString::number(totalKuToCram),
                                 QString::number(interval * 60 - secDelayed));
         trayIcon->setToolTip(toolTip);
     }
@@ -267,8 +267,12 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
 
     availableCategory[currCatIndex].KuToCramCount--;
     remainingKUsToCram--;
+    size_t sum = 0;
+    for (const auto& cat : availableCategory)
+        sum += cat.KuToCramCount;
+    assert(sum == remainingKUsToCram);
 
-    for (int i = 0; i < availableCategory.size(); i++)
+    for (size_t i = 0; i < availableCategory.size(); i++)
         if (availableCategory[i].KuToCramCount > 0)
             return true;
 
@@ -366,16 +370,16 @@ void CrammingWindow::postKuLoadGuiUpdate()
         infos[idx++] = v1;
 
     if (winWidth <= 1200) {
-        v1 = "Prog.: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
-             + QString::number(totalKU);
-        v2 = "Progress: " + QString::number(totalKU - remainingKUsToCram + 1) + "/"
-             + QString::number(totalKU);
+        v1 = "Prog.: " + QString::number(totalKuToCram - remainingKUsToCram + 1) + "/"
+             + QString::number(totalKuToCram);
+        v2 = "Progress: " + QString::number(totalKuToCram - remainingKUsToCram + 1) + "/"
+             + QString::number(totalKuToCram);
         (fm.horizontalAdvance(v2) < winWidth * 1.9 / 10.0) ? infos[idx++] = v2 : infos[idx++] = v1;
 
         ui->progressBar_Learning->setVisible(false);
     } else {
         v1 = "Breakdown: ";
-        for (int j = 0; j < availableCategory.size(); j++) {
+        for (size_t j = 0; j < availableCategory.size(); j++) {
             if (availableCategory[j].KuToCramCount <= 0)
                 continue;
             v1 += availableCategory[j].name + ": "
@@ -384,9 +388,9 @@ void CrammingWindow::postKuLoadGuiUpdate()
         }
         infos[idx++] = v1.left(v1.length() - 2);
         ui->progressBar_Learning->setValue(
-            static_cast<int>((totalKU - remainingKUsToCram + 1) * 100.0 / (totalKU)));
-        ui->progressBar_Learning->setFormat(QString::number(totalKU - remainingKUsToCram + 1) + "/"
-                                            + QString::number(totalKU));
+            static_cast<int>((totalKuToCram - remainingKUsToCram + 1) * 100.0 / (totalKuToCram)));
+        ui->progressBar_Learning->setFormat(QString::number(totalKuToCram - remainingKUsToCram + 1) + "/"
+                                            + QString::number(totalKuToCram));
         ui->progressBar_Learning->setVisible(true);
     }
 
@@ -464,11 +468,11 @@ void CrammingWindow::initNextKU()
 
 int CrammingWindow::pickCategoryforNewKU()
 {
-    int r = ranGen.generate() % remainingKUsToCram;
-    int s = 0;
+    size_t r = ranGen.generate() % remainingKUsToCram;
+    size_t s = 0;
 
     // It tries to draw a category probabilistically using remaining KUs' distribution
-    for (int i = 0; i < availableCategory.size(); i++) {
+    for (size_t i = 0; i < availableCategory.size(); i++) {
         s += availableCategory[i].KuToCramCount;
         if (r < s) {
             return i;
@@ -502,7 +506,7 @@ void CrammingWindow::loadNewKU(int recursion_depth)
     auto currCat = availableCategory[currCatIndex];
 
     auto msg = QString("Remaining KUs to be crammed by category: ");
-    for (int i = 0; i < availableCategory.size(); i++) {
+    for (size_t i = 0; i < availableCategory.size(); i++) {
         msg += QString("%1: %2, ")
                    .arg(availableCategory[i].name,
                         QString::number(availableCategory[i].KuToCramCount));
@@ -653,7 +657,7 @@ void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
 void CrammingWindow::finalizeCrammingSession()
 {
     QString snapDiffStr;
-    for (int i = 0; i < availableCategory.size(); i++) {
+    for (size_t i = 0; i < availableCategory.size(); i++) {
         auto snap = Snapshot(availableCategory[i].name);
         snap.category = availableCategory[i].name;
         db.updateSnapshot(snap);
