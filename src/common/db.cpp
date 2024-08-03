@@ -428,3 +428,14 @@ ORDER BY id ASC
     }
     return options;
 }
+
+void DB::deleteKu(const struct KnowledgeUnit &ku)
+{
+    auto stmt = QString(R"**(
+DELETE FROM knowledge_units
+WHERE id = :id
+)**");
+    auto query = openConnThenPrepareQuery(stmt);
+    query.bindValue(":id", ku.ID);
+    execQuery(query);
+}

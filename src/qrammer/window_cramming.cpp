@@ -64,7 +64,7 @@ void CrammingWindow::closeEvent(QCloseEvent *event)
     }
     auto resBtn = QMessageBox::question(this,
                                         "Qrammer",
-                                        "Are you sure to quit?\n",
+                                        "Are you sure to quit?",
                                         QMessageBox::No | QMessageBox::Yes,
                                         QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
@@ -93,13 +93,6 @@ void CrammingWindow::initUI()
 
 void CrammingWindow::initPlatformSpecificSettings()
 {
-    /*
-    QDir tmpDir = QApplication::applicationFilePath();
-    tmpDir.cdUp();
-    tmpDir.cdUp();
-    parentDir = tmpDir.path();
-    // ui->pushButton_Skip->setVisible(false);
-    */
     QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
     this->setStyleSheet(styleSheet);
 }
@@ -1049,4 +1042,25 @@ void CrammingWindow::on_textEdit_Response_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Response);
     setWindowStyle();
+}
+
+void CrammingWindow::on_pushButton_Delete_clicked()
+{
+    if (QMessageBox::question(
+            this,
+            "Qrammer",
+            "Are you sure to delete this knowledge unit? This operation can't be undone.",
+            QMessageBox::No | QMessageBox::Yes,
+            QMessageBox::No)
+        == QMessageBox::Yes) {
+        try {
+            db.deleteKu(cku);
+        } catch (const std::runtime_error &e) {
+            auto errMsg = QString("Failed to DELETE KnowledgeUnit: %1").arg(e.what());
+            SPDLOG_ERROR(errMsg.toStdString());
+            QMessageBox::warning(this, "Qrammer", errMsg, QMessageBox::Ok);
+        }
+        SPDLOG_INFO("KnowledgeUnit {} DELETEed", cku.ID);
+        initNextKU();
+    }
 }

@@ -58,6 +58,8 @@ private slots:
     void on_pushButton_ChooseImage_clicked();
     void on_textEdit_Response_textChanged();
 
+    void on_pushButton_Delete_clicked();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;

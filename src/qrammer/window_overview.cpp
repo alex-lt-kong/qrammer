@@ -13,16 +13,27 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    if (!initCategories())
-        return;
-    if (!initUI())
-        return;
-    initSettings();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+bool MainWindow::init()
+{
+    QSqlQuery q;
+    try {
+        allCats = db.getAllCategories();
+        q = db.getQueryForKuTableView(QGuiApplication::primaryScreen()->geometry().width() >= 1080);
+    } catch (const std::runtime_error &e) {
+        auto errMsg = QString("db.getAllCategories() failed: %1").arg(e.what());
+        SPDLOG_ERROR(errMsg.toStdString());
+        QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
+        return false;
+    }
+    initUi(q);
+    return true;
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
@@ -46,46 +57,9 @@ void MainWindow::closeEvent (QCloseEvent *event)
     }
 }
 
-bool MainWindow::initCategories()
-{
-    try {
-        allCats = db.getAllCategories();
-    } catch (const std::exception &e) {
-        ui->pushButton_Start->setEnabled(false);
-        auto errMsg = QString("db.getAllCategories() failed: %1").arg(e.what());
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer - Fatal Error", errMsg);
-        QApplication::quit();
-        return false;
-    }
-    for (int i = 0; i < allCats.size(); i++) {
-        ui->lineEdit_NumberstoLearn->setPlaceholderText(
-            ui->lineEdit_NumberstoLearn->placeholderText() + allCats[i].name
-            + (i < allCats.size() - 1 ? ", " : ""));
-    }
-    for (int i = 0; i < allCats.size(); i++) {
-        ui->plainTextEdit_Statistics->appendPlainText(allCats[i].snapshot.getSnapshotString());
-    }
-    QFont font("Monospace");
-    font.setStyleHint(QFont::TypeWriter);
-    ui->plainTextEdit_Statistics->setFont(font);
-    return true;
-}
-
-bool MainWindow::initUI()
+void MainWindow::initUi_Overview(QSqlQuery &query)
 {
     QSqlQueryModel *model = new QSqlQueryModel(this);
-    QSqlQuery query;
-    try {
-        query = db.getQueryForKuTableView(QGuiApplication::primaryScreen()->geometry().width()
-                                          >= 1080);
-    } catch (const std::runtime_error &e) {
-        QString errMsg = QString("db.getQueryForKuTableView() failed: %1").arg(e.what());
-        SPDLOG_ERROR(errMsg.toStdString());
-        QMessageBox::critical(this, "Qrammer", errMsg, QMessageBox::Ok);
-        QApplication::exit();
-        return false;
-    }
     model->setQuery(std::move(query));
     ui->tableView_KU->setModel(model);
     ui->tableView_KU->setSortingEnabled(true);
@@ -103,12 +77,39 @@ bool MainWindow::initUI()
     ui->tableView_KU->setSortingEnabled(true);
 
     ui->tableView_KU->grabGesture(Qt::SwipeGesture);
-
-    ui->lineEdit_NumberstoLearn->setFocus();
-    return true;
 }
 
-void MainWindow::initSettings()
+void MainWindow::initUi_CrammingSchedule()
+{
+    for (int i = 0; i < allCats.size(); i++) {
+        ui->lineEdit_KusToCramByCategory->setPlaceholderText(
+            ui->lineEdit_KusToCramByCategory->placeholderText() + allCats[i].name
+            + (i < allCats.size() - 1 ? ", " : ""));
+    }
+
+    ui->lineEdit_KusToCramByCategory->setFocus();
+}
+
+void MainWindow::initUi_Stats()
+{
+    for (int i = 0; i < allCats.size(); i++) {
+        ui->plainTextEdit_Statistics->appendPlainText(allCats[i].snapshot.getSnapshotString());
+    }
+    QFont font("Monospace");
+    font.setStyleHint(QFont::TypeWriter);
+    ui->plainTextEdit_Statistics->setFont(font);
+}
+
+void MainWindow::initUi(QSqlQuery &query)
+{
+    setWindowTitle(QString("%1 (git commit: %2)").arg(windowTitle(), GIT_COMMIT_HASH));
+    initUi_Stats();
+    initUi_Overview(query);
+    initUi_Settings();
+    initUi_CrammingSchedule();
+}
+
+void MainWindow::initUi_Settings()
 {
     ui->lineEdit_FontSize->setValidator(new QIntValidator(0, 50, this));
     ui->lineEdit_NewKUCoeff->setValidator(new QIntValidator(0, 99, this));
@@ -124,7 +125,7 @@ void MainWindow::on_pushButton_Start_clicked()
     SPDLOG_INFO("Cramming session about to start");
     ui->pushButton_Start->setEnabled(false); // To avoid this event from being triggered twice (which would initiate two practice windows)
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
-    QList<QString> number = ui->lineEdit_NumberstoLearn->text().split(rx);
+    QList<QString> number = ui->lineEdit_KusToCramByCategory->text().split(rx);
 
     int t = 0;
     for (int i = 0; i < number.count() && i < allCats.size(); i++) {
@@ -164,14 +165,14 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
         || ui->lineEdit_WindowStyle->text() == "0001" || ui->lineEdit_WindowStyle->text() == "0011"
         || ui->lineEdit_WindowStyle->text() == "1111") {
         settings.setValue("WindowStyle", ui->lineEdit_WindowStyle->text());
-        initSettings();
+        initUi_Settings();
     }
 }
 
 void MainWindow::on_lineEdit_FontSize_textChanged(const QString &)
 {
     settings.setValue("FontSize", ui->lineEdit_FontSize->text());
-    initSettings();
+    initUi_Settings();
 }
 
 void MainWindow::on_pushButton_Quit_clicked()
@@ -191,7 +192,7 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
 void MainWindow::on_lineEdit_ClientName_textChanged()
 {
     settings.setValue("ClientName", ui->lineEdit_ClientName->text());
-    initSettings();
+    initUi_Settings();
 }
 
 void MainWindow::on_pushButton_Start_pressed()
@@ -208,5 +209,5 @@ void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
 {
     (void)arg1;
     settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
-    initSettings();
+    initUi_Settings();
 }

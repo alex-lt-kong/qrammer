@@ -28,10 +28,12 @@ int main(int argc, char *argv[])
     db = DB(dbPath);
 
     MainWindow w;
-    w.showMaximized();
-    // It appears that this line is needed so that the program would not quit if users select NO at the break reminder.
-    a.setQuitOnLastWindowClosed(false);
-    auto retval = a.exec();
-    SPDLOG_INFO("Qrammer exited");
+    int retval = -1;
+    if (w.init()) {
+        w.showMaximized();
+        a.setQuitOnLastWindowClosed(false);
+        retval = a.exec();
+    }
+    SPDLOG_INFO("Qrammer exited, retval: {}", retval);
     return retval;
 }

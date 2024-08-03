@@ -269,7 +269,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QGroupBox" name="groupBox_AvailableMaintypes">
+       <widget class="QGroupBox" name="groupBox_CrammingSchedule">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
           <horstretch>2</horstretch>
@@ -283,11 +283,11 @@
          </size>
         </property>
         <property name="title">
-         <string>Practice Schedule</string>
+         <string>Cramming Schedule</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0">
          <item>
-          <widget class="QLineEdit" name="lineEdit_NumberstoLearn">
+          <widget class="QLineEdit" name="lineEdit_KusToCramByCategory">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
              <horstretch>0</horstretch>

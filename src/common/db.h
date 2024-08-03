@@ -21,6 +21,7 @@ public:
     struct KnowledgeUnit getNewKu(const QString &category);
     struct KnowledgeUnit getRandomOldKu(const Category &cat);
     void updateKu(const struct KnowledgeUnit &ku);
+    void deleteKu(const struct KnowledgeUnit &ku);
     void openConnection();
     QSqlQuery openConnThenPrepareQuery(const QString &stmt);
     void execQuery(QSqlQuery &query);

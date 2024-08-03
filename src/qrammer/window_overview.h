@@ -22,7 +22,7 @@ class MainWindow : public QMainWindow
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-
+    bool init();
     ~MainWindow() override;
 
 protected:
@@ -41,9 +41,11 @@ private slots:
     void on_lineEdit_NewKUCoeff_textChanged(const QString &arg1);
 
 private:
-    bool initCategories();
-    bool initUI();
-    void initSettings();
+    void initUi(QSqlQuery &query);
+    void initUi_Stats();
+    void initUi_Overview(QSqlQuery &query);
+    void initUi_Settings();
+    void initUi_CrammingSchedule();
     void swipeTriggered(QSwipeGesture *gesture);
 
 private:
