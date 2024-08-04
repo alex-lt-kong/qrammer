@@ -1,7 +1,7 @@
 #ifndef WINDOW_OVERVIEW_H
 #define WINDOW_OVERVIEW_H
 
-#include "src/common/dto/category.h"
+#include "./dto/category.h"
 
 #include <QDir>
 #include <QList>
@@ -39,6 +39,8 @@ private slots:
     void on_pushButton_Start_pressed();
     void on_pushButton_Quit_pressed();
     void on_lineEdit_NewKUCoeff_textChanged(const QString &arg1);
+
+    void on_pushButto_Manage_clicked();
 
 private:
     void initUi(QSqlQuery &query);

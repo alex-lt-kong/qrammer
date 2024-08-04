@@ -1,10 +1,11 @@
 #include "src/qrammer/window_cramming.h"
 #include "bmbox.h"
+#include "db.h"
 #include "msgbox.h"
-#include "src/common/db.h"
-#include "src/common/utils.h"
 #include "src/qrammer/global_variables.h"
+#include "src/qrammer/window_manage_db.h"
 #include "ui_window_cramming.h"
+#include "utils.h"
 
 #include <QAudioOutput>
 #include <QRandomGenerator>
@@ -1070,4 +1071,10 @@ void CrammingWindow::on_pushButton_ChooseQuestionImage_clicked()
 void CrammingWindow::on_pushButton_ChooseAnswerImage_clicked()
 {
     ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+}
+
+void CrammingWindow::on_pushButton_ManageDB_clicked()
+{
+    auto w = new WindowManageDB();
+    w->show();
 }

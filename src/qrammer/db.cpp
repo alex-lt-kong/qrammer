@@ -1,4 +1,4 @@
-#include "./src/common/db.h"
+#include "db.h"
 
 #include <QApplication>
 #include <QDir>
@@ -12,6 +12,7 @@ DB::DB() {}
 
 DB::DB(const std::filesystem::path &dbPath)
 {
+    qDebug() << "DB::DB(const std::filesystem::path &dbPath)";
     conn = QSqlDatabase::addDatabase("QSQLITE");
     databaseName = dbPath.string();
     conn.setDatabaseName(QString::fromStdString(dbPath.string()));
@@ -46,7 +47,6 @@ WHERE
     LENGTH(deadline) > 0 AND
     is_shelved = 0
 )***";
-    openConnection();
     auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
     execQuery(query);
@@ -125,7 +125,6 @@ ORDER BY RANDOM()
 LIMIT 1
 )***")
                     .arg(kuColumns);
-    openConnection();
     auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
     if (!query.exec()) {
@@ -174,8 +173,11 @@ ORDER BY RANDOM() LIMIT 1
 
 void DB::openConnection()
 {
-    if (!conn.isOpen() && !conn.open()) {
-        throw runtime_error("Failed to open database: " + conn.lastError().text().toStdString());
+    if (!conn.isOpen()) {
+        SPDLOG_INFO("opening");
+        if (!conn.open()) {
+            throw runtime_error("Failed to open database: " + conn.lastError().text().toStdString());
+        }
     }
 }
 
@@ -188,6 +190,16 @@ QSqlQuery DB::openConnThenPrepareQuery(const QString &stmt)
                             + "): " + query.lastError().text().toStdString());
     }
     return query;
+}
+
+void DB::openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query)
+{
+    openConnection();
+    query = QSqlQuery(conn);
+    if (!query.prepare(stmt)) {
+        throw runtime_error("Failed to query.prepare(" + stmt.toStdString()
+                            + "): " + query.lastError().text().toStdString());
+    }
 }
 
 void DB::execQuery(QSqlQuery &query)
@@ -220,6 +232,7 @@ struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
 
 QSqlQuery DB::getQueryForKuTableView(const bool isWidthScreen)
 {
+    SPDLOG_INFO("QSqlQuery DB::getQueryForKuTableView(const bool isWidthScreen)");
     QString stmt;
     if (isWidthScreen) {
         stmt = R"***(
@@ -259,17 +272,37 @@ FROM knowledge_units
 WHERE is_shelved = 0
 ORDER BY category DESC
 )";
+    // QSqlQuery query;
     auto query = openConnThenPrepareQuery(stmt);
     execQuery(query);
     auto allCats = std::vector<Category>();
+    // qDebug() << "query.record(): " << query.record();
+    // qDebug() << "query.size(): " << query.size();
+    // qDebug() << "query.numRowsAffected(): " << query.numRowsAffected();
+
+    // query.seek(-1);
+    /*
     while (query.next()) {
+        qDebug() << query.value(0).toString();
         struct Category t;
         t.name = query.value(0).toString();
         t.KuToCramCount = 0;
         t.snapshot = Snapshot(t.name);
         updateSnapshot(t.snapshot);
         allCats.emplace_back(t);
+    }*/
+
+    if (query.last()) {
+        do {
+            struct Category t;
+            t.name = query.value(0).toString();
+            t.KuToCramCount = 0;
+            t.snapshot = Snapshot(t.name);
+            updateSnapshot(t.snapshot);
+            allCats.emplace_back(t);
+        } while (query.previous());
     }
+
     return allCats;
 }
 

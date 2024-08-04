@@ -10,16 +10,16 @@
 #include <QFont>
 
 namespace Ui {
-class MainWindow;
+class WindowManageDB;
 }
 
-class MainWindow : public QMainWindow
+class WindowManageDB : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    explicit WindowManageDB(QWidget *parent = nullptr);
+    ~WindowManageDB();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -57,7 +57,7 @@ private:
     void showSingleKU(int kuID);
     bool inputAvailabilityCheck();
 
-    Ui::MainWindow *ui;
+    Ui::WindowManageDB *ui;
 
     QMap<QString, int> *searchResults;
 

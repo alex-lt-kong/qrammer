@@ -328,6 +328,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QPushButton" name="pushButto_Manage">
+           <property name="text">
+            <string>Manage</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QPushButton" name="pushButton_Quit">
            <property name="text">
             <string>Quit...</string>

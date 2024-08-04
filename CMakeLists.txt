@@ -45,8 +45,8 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/global_variables.h
     src/qrammer/global_variables.cpp
 
-    src/common/logger.h  src/common/logger.cpp
-    src/common/utils.h   src/common/utils.cpp
+    src/qrammer/logger.h  src/qrammer/logger.cpp
+    src/qrammer/utils.h   src/qrammer/utils.cpp
     resources/qrammer-db-tool.ico
     resources/qrammer-db-tool.ico
     resources/res.qrc
@@ -54,33 +54,15 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     cmake/compiler-flags.cmake cmake/sanitizers.cmake
     cmake/git.cmake
 
-    ./src/common/dto/knowledge_unit.h
-    ./src/common/dto/category.h
+    ./src/qrammer/dto/knowledge_unit.h
+    ./src/qrammer/dto/category.h
 
-    ./src/common/db.h ./src/common/db.cpp
+    ./src/qrammer/db.h ./src/qrammer/db.cpp
+    src/qrammer/window_manage_db.cpp src/qrammer/window_manage_db.h src/qrammer/window_manage_db.ui
+
 )
-
-
-qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
-    ./src/qrammer-db-util/main.cpp
-    ./src/qrammer-db-util/mainwindow.cpp
-    ./src/qrammer-db-util/mainwindow.h
-    ./src/qrammer-db-util/mainwindow.ui
-    ./src/qrammer-db-util/global_variables.h
-    ./src/qrammer-db-util/global_variables.cpp
-
-    ./src/qrammer/snapshot.cpp ./src/qrammer/snapshot.h
-    ./src/common/logger.h      ./src/common/logger.cpp
-    ./src/common/utils.h       ./src/common/utils.cpp
-    resources/res.qrc
-)
-
 
 target_compile_definitions(qrammer PRIVATE
-    QT_DEPRECATED_WARNINGS
-    "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
-)
-target_compile_definitions(qrammer-db-util PRIVATE
     QT_DEPRECATED_WARNINGS
     "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
 )
@@ -94,14 +76,3 @@ target_link_libraries(qrammer PRIVATE
     Qt::Widgets
     spdlog::spdlog
 )
-
-target_link_libraries(qrammer-db-util PRIVATE
-    Qt::Core
-    Qt::Widgets
-    Qt::Gui
-    Qt6::Sql
-    spdlog::spdlog
-)
-
-#file(COPY        ${CMAKE_CURRENT_SOURCE_DIR}/resources
-#     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)

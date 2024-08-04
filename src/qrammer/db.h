@@ -1,8 +1,8 @@
 #ifndef DB_H
 #define DB_H
 
-#include "src/common/dto/category.h"
-#include "src/common/dto/knowledge_unit.h"
+#include "dto/category.h"
+#include "dto/knowledge_unit.h"
 
 #include <QSqlDatabase>
 #include <QString>
@@ -24,6 +24,7 @@ public:
     void deleteKu(const struct KnowledgeUnit &ku);
     void openConnection();
     QSqlQuery openConnThenPrepareQuery(const QString &stmt);
+    void openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query);
     void execQuery(QSqlQuery &query);
     std::string getDatabasePath();
     std::vector<Category> getAllCategories();

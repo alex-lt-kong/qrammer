@@ -1,22 +1,17 @@
-﻿#include "mainwindow.h"
-#include "src/common/utils.h"
-#include "src/qrammer-db-util/global_variables.h"
-#include "src/qrammer-db-util/ui_mainwindow.h"
+﻿#include "window_manage_db.h"
+#include "global_variables.h"
+#include "src/qrammer/ui_window_manage_db.h"
+#include "utils.h"
 
 #include <QFileDialog>
 #include <spdlog/spdlog.h>
 
-MainWindow::MainWindow(QWidget *parent) :
+WindowManageDB::WindowManageDB(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::WindowManageDB)
 {
-    QDir tmpDir = QApplication::applicationFilePath();
-    tmpDir.cdUp();
-    tmpDir.cdUp();
-    sqlDb = QSqlDatabase::addDatabase(DATABASE_DRIVER);
-    sqlDb.setDatabaseName(databaseName);
-    sqlDb.setDatabaseName(tmpDir.path() + "/db/database.sqlite");
-
+    qDebug() << "called";
+    SPDLOG_INFO("called");
     ui->setupUi(this);
 
     ui->lineEdit_Keyword->setFocus();
@@ -38,24 +33,18 @@ MainWindow::MainWindow(QWidget *parent) :
                           ui->comboBox_Maintype_Search->currentText());
 }
 
-MainWindow::~MainWindow()
+WindowManageDB::~WindowManageDB()
 {
     delete ui;
 }
 
-void MainWindow::initCategory()
+void WindowManageDB::initCategory()
 {
-    if (!sqlDb.isOpen() && !sqlDb.open()) {
-        QMessageBox::warning(this,
-                             "Warning",
-                             QString("Cannot open the database %1:\n%2")
-                                 .arg(sqlDb.databaseName(), sqlDb.lastError().text()));
-        QApplication::quit();
-        return;
-    }
+    qDebug() << "called";
+    SPDLOG_INFO("called");
     ui->comboBox_Maintype_Search->clear();
 
-    QSqlQuery query = QSqlQuery(sqlDb);
+    QSqlQuery query = QSqlQuery(db.conn);
     auto stmt = "SELECT DISTINCT(category) FROM knowledge_units ORDER BY category ASC";
     if (!query.prepare(stmt)) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
@@ -74,16 +63,16 @@ void MainWindow::initCategory()
     // A very weird workaround: if not receving all maintypes in t first and then add them to combox, only the first item would be added.
     ui->comboBox_Maintype_Search->addItems(t);
     ui->comboBox_Maintype_Meta->addItems(t);
-    sqlDb.close();
+    db.conn.close();
 }
 
-void MainWindow::conductDatabaseSearch(QString field, QString keyword, QString category)
+void WindowManageDB::conductDatabaseSearch(QString field, QString keyword, QString category)
 {
     SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
-    if (!sqlDb.isOpen() && !sqlDb.open()) {
-        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
+    if (!db.conn.isOpen() && !db.conn.open()) {
+        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.conn.lastError().text());
         return;
     }
     auto stmt = QString(R"***(
@@ -94,7 +83,7 @@ WHERE
     %1 LIKE :keyword
 LIMIT 50)***")
                     .arg(field);
-    auto query = QSqlQuery(sqlDb);
+    auto query = QSqlQuery(db.conn);
     if (!query.prepare(stmt)) {
         SPDLOG_ERROR(query.lastError().text().toStdString());
         QMessageBox::critical(this, "Error", query.lastError().text());
@@ -128,15 +117,15 @@ LIMIT 50)***")
     SPDLOG_INFO("Found {} matches", ui->listWidget_SearchResults->count());
 }
 
-void MainWindow::showSingleKU(int kuID)
+void WindowManageDB::showSingleKU(int kuID)
 {
     currKUID = kuID;
-    if (!sqlDb.isOpen() && !sqlDb.open()) {
-        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
+    if (!db.conn.isOpen() && !db.conn.open()) {
+        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.conn.lastError().text());
         return;
     }
-    auto query = QSqlQuery(sqlDb);
+    auto query = QSqlQuery(db.conn);
     auto columns = QString(R"***(
 id,
 question,
@@ -239,7 +228,7 @@ answer_image)***");
     // db.close();
 }
 
-bool MainWindow::inputAvailabilityCheck()
+bool WindowManageDB::inputAvailabilityCheck()
 {
     if (ui->plainTextEdit_Question->toPlainText().size() <= 0) {
         QMessageBox::information(this, "Information missing", "Field [Question] must be filled");
@@ -277,12 +266,12 @@ bool MainWindow::inputAvailabilityCheck()
     return true;
 }
 
-void MainWindow::on_pushButton_Quit_clicked()
+void WindowManageDB::on_pushButton_Quit_clicked()
 {
-    QApplication::exit();
+    this->close();
 }
 
-void MainWindow::on_comboBox_Field_currentTextChanged(const QString &)
+void WindowManageDB::on_comboBox_Field_currentTextChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
@@ -290,24 +279,24 @@ void MainWindow::on_comboBox_Field_currentTextChanged(const QString &)
     setWindowTitle("Qrammer - DB Utility [" + ui->comboBox_Field->currentText() + "]");
 }
 
-void MainWindow::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
+void WindowManageDB::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
 {
     ui->comboBox_Maintype_Meta->setCurrentText(ui->comboBox_Maintype_Search->currentText());
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void MainWindow::on_listWidget_SearchResults_currentTextChanged(const QString &currentText)
+void WindowManageDB::on_listWidget_SearchResults_currentTextChanged(const QString &currentText)
 {
     showSingleKU(searchResults->value(currentText, -1));
 }
 
-void MainWindow::on_pushButton_NewKU_clicked()
+void WindowManageDB::on_pushButton_NewKU_clicked()
 {
     showSingleKU(-1);
 }
 
-void MainWindow::on_lineEdit_Keyword_textChanged(const QString &)
+void WindowManageDB::on_lineEdit_Keyword_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text()
@@ -315,18 +304,18 @@ void MainWindow::on_lineEdit_Keyword_textChanged(const QString &)
                           + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void MainWindow::on_pushButton_WriteDB_clicked()
+void WindowManageDB::on_pushButton_WriteDB_clicked()
 {
     if (!inputAvailabilityCheck())
         return;
 
-    if (!sqlDb.isOpen() && !sqlDb.open()) {
-        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
+    if (!db.conn.isOpen() && !db.conn.open()) {
+        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.conn.lastError().text());
         return;
     }
 
-    QSqlQuery query = QSqlQuery(sqlDb);
+    QSqlQuery query = QSqlQuery(db.conn);
     if (currKUID == -1) {
         auto stmt = QString(R"***(
 INSERT INTO knowledge_units (
@@ -441,30 +430,30 @@ WHERE id = :id)***";
     // db.close();
 }
 
-void MainWindow::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
+void WindowManageDB::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void MainWindow::on_lineEdit_Keyword_Prefix_textChanged(const QString &)
+void WindowManageDB::on_lineEdit_Keyword_Prefix_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()  + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void MainWindow::keyPressEvent(QKeyEvent *event)
+void WindowManageDB::keyPressEvent(QKeyEvent *event)
 {
     if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
         on_pushButton_WriteDB_clicked();
 }
 
-void MainWindow::on_listWidget_SearchResults_doubleClicked(const QModelIndex &)
+void WindowManageDB::on_listWidget_SearchResults_doubleClicked(const QModelIndex &)
 {
     showSingleKU(searchResults->value(ui->listWidget_SearchResults->currentItem()->text(), -1));
 }
 
-void MainWindow::on_pushButton_Delete_clicked()
+void WindowManageDB::on_pushButton_Delete_clicked()
 {
     if (QMessageBox::question(this,
                               "QJLT - KU Deletion",
@@ -473,13 +462,13 @@ void MainWindow::on_pushButton_Delete_clicked()
         != QMessageBox::Yes)
         return;
 
-    if (!sqlDb.isOpen() && !sqlDb.open()) {
-        SPDLOG_ERROR(sqlDb.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", sqlDb.lastError().text());
+    if (!db.conn.isOpen() && !db.conn.open()) {
+        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
+        QMessageBox::critical(this, "Error", db.conn.lastError().text());
         return;
     }
 
-    QSqlQuery query = QSqlQuery(sqlDb);
+    QSqlQuery query = QSqlQuery(db.conn);
     if (currKUID > 0) {
         auto stmt = "DELETE FROM knowledge_units WHERE id = :id";
         if (!query.prepare(stmt)) {
@@ -501,12 +490,12 @@ void MainWindow::on_pushButton_Delete_clicked()
     on_lineEdit_Keyword_textChanged(nullptr);
 }
 
-void MainWindow::on_pushButton_ChooseImage_clicked()
+void WindowManageDB::on_pushButton_ChooseImage_clicked()
 {
     ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
 }
 
-void MainWindow::on_pushButton_ChooseQuestionImage_clicked()
+void WindowManageDB::on_pushButton_ChooseQuestionImage_clicked()
 {
     ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
 }

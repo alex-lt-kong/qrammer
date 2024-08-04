@@ -1,5 +1,5 @@
-#include "../common/logger.h"
 #include "global_variables.h"
+#include "logger.h"
 
 #include "window_overview.h"
 

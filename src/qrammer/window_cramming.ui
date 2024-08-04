@@ -267,9 +267,9 @@
        </spacer>
       </item>
       <item>
-       <widget class="QPushButton" name="pushButton_Delete">
+       <widget class="QPushButton" name="pushButton_ManageDB">
         <property name="text">
-         <string>Delete</string>
+         <string>Manage DB</string>
         </property>
        </widget>
       </item>

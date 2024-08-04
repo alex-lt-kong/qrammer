@@ -1,8 +1,8 @@
 #ifndef WINDOW_CRAMMING_H
 #define WINDOW_CRAMMING_H
 
-#include "src/common/dto/category.h"
-#include "src/common/dto/knowledge_unit.h"
+#include "./dto/category.h"
+#include "./dto/knowledge_unit.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -59,6 +59,8 @@ private slots:
     void on_pushButton_Delete_clicked();
     void on_pushButton_ChooseQuestionImage_clicked();
     void on_pushButton_ChooseAnswerImage_clicked();
+
+    void on_pushButton_ManageDB_clicked();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

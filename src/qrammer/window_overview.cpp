@@ -1,8 +1,9 @@
 #include "window_overview.h"
+#include "db.h"
 #include "global_variables.h"
-#include "src/common/db.h"
 #include "src/qrammer/ui_window_overview.h"
 #include "window_cramming.h"
+#include "window_manage_db.h"
 
 #include <QDir>
 #include <QRegularExpression>
@@ -212,4 +213,10 @@ void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
     (void)arg1;
     settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
     initUi_Settings();
+}
+
+void MainWindow::on_pushButto_Manage_clicked()
+{
+    auto w = new WindowManageDB(this);
+    w->show();
 }
