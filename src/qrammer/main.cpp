@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     SPDLOG_INFO("Settings are stored at: {}", settings.fileName().toStdString());
 
     QApplication a(argc, argv);
+    a.setQuitOnLastWindowClosed(false);
 
     QDir binPath = QApplication::applicationFilePath();
     binPath.cdUp();
@@ -31,7 +32,6 @@ int main(int argc, char *argv[])
     int retval = -1;
     if (w.init()) {
         w.showMaximized();
-        a.setQuitOnLastWindowClosed(false);
         retval = a.exec();
     }
     SPDLOG_INFO("Qrammer exited, retval: {}", retval);

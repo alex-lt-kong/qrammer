@@ -38,7 +38,9 @@ bool MainWindow::init()
 
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
-    if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
+    // TODO: for some reasons this does not work yet...
+    if (event->modifiers() & Qt::ControlModifier
+        && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
         on_pushButton_Start_clicked();
 }
 

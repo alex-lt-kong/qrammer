@@ -380,6 +380,7 @@ void DB::updateSnapshot(Snapshot &snap)
     else
         snap.lastStudied = QDateTime::fromString("1970-01-01 00:00:00", "yyyy-MM-dd hh:mm:ss");
     query.finish();
+    conn.close();
 }
 
 void DB::updateKu(const struct KnowledgeUnit &ku)

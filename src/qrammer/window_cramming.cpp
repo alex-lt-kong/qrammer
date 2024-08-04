@@ -289,12 +289,7 @@ void CrammingWindow::preKuLoadGuiUpdate()
 
     ui->textEdit_Answer->clear();
     ui->textEdit_Response->clear();
-    QPixmap questionImage;
-    if (cku.QuestionImageBytes.size() > 0 && questionImage.loadFromData(cku.QuestionImageBytes)) {
-        ui->label_QuestionImage->setPixmap(questionImage);
-    } else {
-        ui->label_QuestionImage->setText("[Empty]");
-    }
+    ui->label_QuestionImage->setText("[Empty]");
     ui->label_AnswerImage->setText("[Hidden]");
     ui->pushButton_ChooseAnswerImage->setEnabled(false);
     ui->comboBox_Score->clearEditText();
@@ -312,6 +307,13 @@ void CrammingWindow::postKuLoadGuiUpdate()
     ui->textEdit_Question->setPlainText(cku.Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
     adaptTexteditLineSpacing(ui->textEdit_Response);
+
+    QPixmap questionImage;
+    if (cku.QuestionImageBytes.size() > 0 && questionImage.loadFromData(cku.QuestionImageBytes)) {
+        ui->label_QuestionImage->setPixmap(questionImage);
+    } else {
+        ui->label_QuestionImage->setText("[Empty]");
+    }
 
     int winWidth = this->size().width();
     QFont myFont(ui->textEdit_Info->font());
@@ -939,6 +941,10 @@ void CrammingWindow::resizeEvent(QResizeEvent *event)
 
 void CrammingWindow::keyPressEvent(QKeyEvent *event)
 {
+    qDebug() << "pressed";
+    qDebug() << "event->modifiers()&Qt::ControlModifier: "
+             << (event->modifiers() & Qt::ControlModifier);
+    qDebug() << "event->key(): " << event->key();
     if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
         on_pushButton_Check_clicked();
 
