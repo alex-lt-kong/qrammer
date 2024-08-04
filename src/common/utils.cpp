@@ -1,5 +1,11 @@
 #include "utils.h"
 
+#include <QApplication>
+#include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QScreen>
+#include <QString>
 #include <spdlog/spdlog.h>
 
 #include <thread>
@@ -26,4 +32,40 @@ void execExternalProgramAsync(const string cmd)
         }
     });
     th_exec.detach();
+}
+
+QPixmap selectImageFromFileSystem()
+{
+    qDebug() << "(int) (QApplication::primaryScreen()->availableGeometry().height() / 2.2): "
+             << (int) (QApplication::primaryScreen()->availableGeometry().height() / 2.2);
+    QString fileName = QFileDialog::getOpenFileName(nullptr,
+                                                    "Select an image",
+                                                    nullptr,
+                                                    "Images (*.png *.bmp *.jpg *.jpeg *.webp)");
+    QPixmap image;
+    if (fileName.isEmpty()) {
+        SPDLOG_INFO("No file is selected");
+        return QPixmap();
+    }
+    QByteArray byteArray;
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return QPixmap();
+    }
+    byteArray = file.readAll();
+    file.close();
+    SPDLOG_INFO("fileName: {},byteArray.size(): {} bytes", fileName.toStdString(), byteArray.size());
+    if (!image.loadFromData(byteArray)) {
+        auto errMsg = QString(
+                          "Failed loading file content from %1 into QPixmap, filesize: %2 bytes")
+                          .arg(fileName)
+                          .arg(byteArray.size());
+        SPDLOG_ERROR(errMsg.toStdString());
+        return QPixmap();
+    }
+    auto w = std::min(image.width(), ANSWER_IMAGE_DIMENSION);
+    auto h = std::min(image.height(),
+                      QApplication::primaryScreen()->availableGeometry().height() / 3);
+    image = image.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    return image;
 }

@@ -30,7 +30,8 @@ deadline,
 client_name,
 category,
 time_used,
-answer_image)***");
+answer_image,
+question_image)***");
 }
 
 int DB::getDueKuCountByCategory(const QString &category)
@@ -213,6 +214,7 @@ struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
     ku.Category = query.value(idx++).toString();
     ku.timeUsedSec = query.value(idx++).toInt();
     ku.AnswerImageBytes = query.value(idx++).toByteArray();
+    ku.QuestionImageBytes = query.value(idx++).toByteArray();
     return ku;
 }
 
@@ -395,7 +397,8 @@ SET
     first_practice_time = :first_practice_time,
     client_name = :client_name,
     time_used = :time_used,
-    answer_image = :answer_image
+    answer_image = :answer_image,
+    question_image = :question_image
 WHERE id = :id
 )**");
     auto query = openConnThenPrepareQuery(stmt);
@@ -410,6 +413,7 @@ WHERE id = :id
     query.bindValue(":deadline", ku.Deadline);
     query.bindValue(":id", ku.ID);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
+    query.bindValue(":question_image", ku.QuestionImageBytes);
     execQuery(query);
 }
 

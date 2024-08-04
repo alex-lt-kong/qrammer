@@ -22,6 +22,7 @@ struct KnowledgeUnit
     QString Category;
     int timeUsedSec;
     QByteArray AnswerImageBytes;
+    QByteArray QuestionImageBytes;
 };
 
 #endif // KNOWLEDGE_UNIT_H

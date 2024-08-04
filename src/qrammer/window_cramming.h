@@ -55,10 +55,10 @@ private slots:
     void on_pushButton_Skip_pressed();
     void on_pushButton_Check_pressed();
     void on_pushButton_Next_pressed();
-    void on_pushButton_ChooseImage_clicked();
     void on_textEdit_Response_textChanged();
-
     void on_pushButton_Delete_clicked();
+    void on_pushButton_ChooseQuestionImage_clicked();
+    void on_pushButton_ChooseAnswerImage_clicked();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -96,7 +96,7 @@ private:
      * @brief
      * @return whether the program should start loading next KU
     */
-    bool finalizeTheKUJustBeingCrammed();
+    bool finalizeKuJustBeingCrammed();
     double calculateNewPreviousScore(double newScore);
     void adaptTexteditHeight(QTextEdit *plaintextedit);
     void adaptTexteditLineSpacing(QTextEdit *textedit);
@@ -117,6 +117,7 @@ private:
     void postKuLoadGuiUpdate();
     void saveWindowLayout();
     void restoreWindowLayout();
+    void updateCkuByGuiElements();
 
     int currCatIndex;
     size_t totalKuToCram;

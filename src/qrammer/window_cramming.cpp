@@ -124,11 +124,12 @@ void CrammingWindow::on_pushButton_Next_clicked()
         return;
     // This is to ensure that the user will not click the button twice.
     ui->pushButton_Next->setEnabled(false);
-    ui->pushButton_ChooseImage->setEnabled(false);
+    ui->pushButton_ChooseAnswerImage->setEnabled(false);
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 
-    if (!finalizeTheKUJustBeingCrammed())
+    updateCkuByGuiElements();
+    if (!finalizeKuJustBeingCrammed())
         return;
     spdlog::default_logger()->flush();
 
@@ -194,14 +195,11 @@ void CrammingWindow::on_pushButton_Check_clicked()
     ui->textEdit_Answer->setPlainText(cku.Answer);
     QPixmap answerImage;
     if (cku.AnswerImageBytes.size() > 0 && answerImage.loadFromData(cku.AnswerImageBytes)) {
-        auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
-        auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
-        answerImage = answerImage.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
         ui->label_AnswerImage->setPixmap(answerImage);
     } else {
         ui->label_AnswerImage->setText("[Empty]");
     }
-    ui->pushButton_ChooseImage->setEnabled(true);
+    ui->pushButton_ChooseAnswerImage->setEnabled(true);
     adaptTexteditLineSpacing(ui->textEdit_Answer);
     ui->pushButton_Check->setEnabled(false);
     ui->comboBox_Score->setEnabled(true);
@@ -209,10 +207,8 @@ void CrammingWindow::on_pushButton_Check_clicked()
     onAnswerShownCallback();
 }
 
-bool CrammingWindow::finalizeTheKUJustBeingCrammed()
+void CrammingWindow::updateCkuByGuiElements()
 {
-    assert(availableCategory[currCatIndex].KuToCramCount > 0);
-
     cku.ClientName = clientName;
     cku.Question = ui->textEdit_Question->toPlainText();
     cku.Answer = ui->textEdit_Answer->toPlainText();
@@ -242,6 +238,18 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
     } else {
         cku.AnswerImageBytes = QByteArray();
     }
+    if (!ui->label_QuestionImage->pixmap().isNull()) {
+        QBuffer buffer(&cku.QuestionImageBytes);
+        buffer.open(QIODevice::WriteOnly);
+        ui->label_QuestionImage->pixmap().save(&buffer, "PNG");
+    } else {
+        cku.QuestionImageBytes = QByteArray();
+    }
+}
+
+bool CrammingWindow::finalizeKuJustBeingCrammed()
+{
+    assert(availableCategory[currCatIndex].KuToCramCount > 0);
 
     while (true) {
         try {
@@ -250,8 +258,8 @@ bool CrammingWindow::finalizeTheKUJustBeingCrammed()
         } catch (const std::runtime_error &e) {
             auto errMsg = std::string("Error db.updateKu(cku): ") + e.what();
             SPDLOG_ERROR(errMsg);
-            if (promptUserToRetryDBError("finalizeTheKUJustBeingCrammed()",
-                                         QString::fromStdString(errMsg))) {
+            if (!promptUserToRetryDBError("finalizeTheKUJustBeingCrammed()",
+                                          QString::fromStdString(errMsg))) {
                 QApplication::quit();
                 return false;
             }
@@ -281,8 +289,14 @@ void CrammingWindow::preKuLoadGuiUpdate()
 
     ui->textEdit_Answer->clear();
     ui->textEdit_Response->clear();
-    ui->label_AnswerImage->setText("[Empty]");
-
+    QPixmap questionImage;
+    if (cku.QuestionImageBytes.size() > 0 && questionImage.loadFromData(cku.QuestionImageBytes)) {
+        ui->label_QuestionImage->setPixmap(questionImage);
+    } else {
+        ui->label_QuestionImage->setText("[Empty]");
+    }
+    ui->label_AnswerImage->setText("[Hidden]");
+    ui->pushButton_ChooseAnswerImage->setEnabled(false);
     ui->comboBox_Score->clearEditText();
 
     ui->comboBox_Score->setEnabled(false);
@@ -1015,29 +1029,6 @@ Error message: %3)*")
     }
 }
 
-void CrammingWindow::on_pushButton_ChooseImage_clicked()
-{
-    auto fileContentReady = [this](const QString &fileName, const QByteArray &fileContent) {
-        if (fileName.isEmpty()) {
-            SPDLOG_INFO("No file is selected");
-        } else {
-            SPDLOG_INFO("fileName: {}", fileName.toStdString());
-            SPDLOG_INFO("fileContent.size(): {} bytes", fileContent.size());
-            QPixmap answerImage;
-            // cku.AnswerImageBytes = fileContent;
-            if (answerImage.loadFromData(fileContent)) {
-                auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
-                auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
-                answerImage = answerImage.scaled(QSize(w, h),
-                                                 Qt::KeepAspectRatio,
-                                                 Qt::SmoothTransformation);
-                ui->label_AnswerImage->setPixmap(answerImage);
-            }
-        }
-    };
-    QFileDialog::getOpenFileContent("Images (*.png *.bmp *.jpg *.jpeg *.webp)", fileContentReady);
-}
-
 void CrammingWindow::on_textEdit_Response_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Response);
@@ -1063,4 +1054,14 @@ void CrammingWindow::on_pushButton_Delete_clicked()
         SPDLOG_INFO("KnowledgeUnit {} DELETEed", cku.ID);
         initNextKU();
     }
+}
+
+void CrammingWindow::on_pushButton_ChooseQuestionImage_clicked()
+{
+    ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
+}
+
+void CrammingWindow::on_pushButton_ChooseAnswerImage_clicked()
+{
+    ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
 }

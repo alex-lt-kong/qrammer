@@ -45,9 +45,8 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/global_variables.h
     src/qrammer/global_variables.cpp
 
-    src/common/logger.h
-    src/common/logger.cpp
-    src/common/utils.h src/common/utils.cpp
+    src/common/logger.h  src/common/logger.cpp
+    src/common/utils.h   src/common/utils.cpp
     resources/qrammer-db-tool.ico
     resources/qrammer-db-tool.ico
     resources/res.qrc
@@ -71,10 +70,8 @@ qt_add_executable(qrammer-db-util WIN32 MACOSX_BUNDLE
     ./src/qrammer-db-util/global_variables.cpp
 
     ./src/qrammer/snapshot.cpp ./src/qrammer/snapshot.h
-
-    ./src/common/logger.h
-    ./src/common/logger.cpp
-
+    ./src/common/logger.h      ./src/common/logger.cpp
+    ./src/common/utils.h       ./src/common/utils.cpp
     resources/res.qrc
 )
 
@@ -83,7 +80,6 @@ target_compile_definitions(qrammer PRIVATE
     QT_DEPRECATED_WARNINGS
     "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
 )
-
 target_compile_definitions(qrammer-db-util PRIVATE
     QT_DEPRECATED_WARNINGS
     "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
