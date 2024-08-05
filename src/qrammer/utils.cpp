@@ -7,11 +7,11 @@
 #include <QScreen>
 #include <QString>
 #include <spdlog/spdlog.h>
-
-#include <thread>
 #ifdef WIN32
 #include <windows.h>
 #endif
+
+#include <thread>
 
 using namespace std;
 
@@ -63,9 +63,9 @@ QPixmap selectImageFromFileSystem()
         SPDLOG_ERROR(errMsg.toStdString());
         return QPixmap();
     }
-    auto w = std::min(image.width(), ANSWER_IMAGE_DIMENSION);
-    auto h = std::min(image.height(),
-                      QApplication::primaryScreen()->availableGeometry().height() / 3);
+    throw std::runtime_error("s");
+    auto w = min(image.width(), ANSWER_IMAGE_DIMENSION);
+    auto h = min(image.height(), QApplication::primaryScreen()->availableGeometry().height() / 3);
     image = image.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     return image;
 }
