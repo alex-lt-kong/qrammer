@@ -63,7 +63,6 @@ QPixmap selectImageFromFileSystem()
         SPDLOG_ERROR(errMsg.toStdString());
         return QPixmap();
     }
-    throw std::runtime_error("s");
     auto w = min(image.width(), ANSWER_IMAGE_DIMENSION);
     auto h = min(image.height(), QApplication::primaryScreen()->availableGeometry().height() / 3);
     image = image.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
