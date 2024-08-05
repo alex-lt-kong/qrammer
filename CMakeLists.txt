@@ -18,11 +18,6 @@ qt_standard_project_setup()
 
 
 qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
-    ./resources/res.qrc
-    src/qrammer/bmbox.cpp
-    src/qrammer/bmbox.h
-    src/qrammer/bmbox.ui
-
     src/qrammer/main.cpp
     src/qrammer/window_overview.cpp
     src/qrammer/window_overview.h
@@ -39,16 +34,16 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/snapshot.cpp
     src/qrammer/snapshot.h
 
-    resources/qrammer.ico
-    resources/qrammer-db-tool.ico
+    #resources/qrammer.ico
+    #resources/qrammer-db-tool.ico
 
     src/qrammer/global_variables.h
     src/qrammer/global_variables.cpp
 
     src/qrammer/logger.h  src/qrammer/logger.cpp
     src/qrammer/utils.h   src/qrammer/utils.cpp
-    resources/qrammer-db-tool.ico
-    resources/qrammer-db-tool.ico
+    #resources/qrammer-db-tool.ico
+    #resources/qrammer-db-tool.ico
     resources/res.qrc
 
     cmake/compiler-flags.cmake cmake/sanitizers.cmake

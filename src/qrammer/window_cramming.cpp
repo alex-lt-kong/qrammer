@@ -1,5 +1,4 @@
 #include "src/qrammer/window_cramming.h"
-#include "bmbox.h"
 #include "db.h"
 #include "msgbox.h"
 #include "src/qrammer/global_variables.h"
@@ -152,17 +151,12 @@ void CrammingWindow::startInterval()
 
 void CrammingWindow::tmrInterval()
 {
-    if (bossMode) {
-        secDelayed = 0;
-        trayIcon->setToolTip("BM activated");
-    } else {
-        secDelayed++;
-        auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: %3 sec")
-                           .arg(QString::number(totalKuToCram - remainingKUsToCram),
-                                QString::number(totalKuToCram),
-                                QString::number(interval * 60 - secDelayed));
-        trayIcon->setToolTip(toolTip);
-    }
+    secDelayed++;
+    auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: %3 sec")
+                       .arg(QString::number(totalKuToCram - remainingKUsToCram),
+                            QString::number(totalKuToCram),
+                            QString::number(interval * 60 - secDelayed));
+    trayIcon->setToolTip(toolTip);
 
     if (secDelayed < interval * 60)
         return;
@@ -778,10 +772,6 @@ void CrammingWindow::initTrayMenu()
     connect(actionResetTimer, SIGNAL(triggered()), this, SLOT(actionResetTimer_triggered_cb()));
     menuTray->addAction(actionResetTimer);
 
-    QAction* actionBossMode = menuTray->addAction("Activate BM");
-    connect(actionBossMode, SIGNAL(triggered()), this, SLOT(actionBossMode_triggered_cb()));
-    menuTray->addAction(actionBossMode);
-
     QAction* actionExit = menuTray->addAction("Exit");
     connect(actionExit, SIGNAL(triggered()), this, SLOT(actionExit_triggered_cb()));
     menuTray->addAction(actionExit);
@@ -789,9 +779,18 @@ void CrammingWindow::initTrayMenu()
     trayIcon->setContextMenu(menuTray);
 }
 
+void CrammingWindow::actionStartLearning_triggered_cb()
+{
+    secDelayed = interval * 60 - 5;
+}
+
 void CrammingWindow::showContextMenu_Question(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Question, menuQuestion, pt);
+}
+void CrammingWindow::actionResetTimer_triggered_cb()
+{
+    secDelayed = 0;
 }
 
 void CrammingWindow::showContextMenu_Answer(const QPoint &pt)
@@ -879,57 +878,13 @@ QString CrammingWindow::convertStringToFilename(QString name)
     return output;
 }
 
-void CrammingWindow::actionResetTimer_triggered_cb()
-{
-    if (bossMode) {
-        return;
-    }
-    else{
-        secDelayed = 0;
-    }
-}
-
-void CrammingWindow::actionBossMode_triggered_cb()
-{
-    bossMode = !bossMode;
-    if (bossMode){
-        QAction *action = trayIcon->contextMenu()->actions().at(2);
-        action->setText("Deactivate BM");
-        startInterval();    // No matter if the user is learning or waiting, just start the waiting cycle should be fine.
-    } else {
-        bmbox *myBm = new bmbox();
-        myBm->setWindowModality(Qt::ApplicationModal);
-        myBm->exec();
-
-        if (myBm->isVerified()) {
-            QAction *action = trayIcon->contextMenu()->actions().at(2);
-            action->setText("Activate BM");
-        } else {
-            bossMode = true;
-        }
-    }
-}
-
-void CrammingWindow::actionStartLearning_triggered_cb()
-{
-    if (bossMode) {
-        return;
-    }
-    else{
-        secDelayed = interval * 60 - 5;
-    }
-}
-
 void CrammingWindow::actionExit_triggered_cb()
 {
-    if (bossMode) {
-        return;
-    } else {
-        finalizeCrammingSession();
-        trayIcon->hide();       // This line alone won't work since finishLearning() would  quit the program before this line is executed
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-        QApplication::quit();
-    }
+    finalizeCrammingSession();
+    // This line alone won't work since finishLearning() would  quit the program before this line is executed
+    trayIcon->hide();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+    QApplication::quit();
 }
 
 void CrammingWindow::resizeEvent(QResizeEvent *event)

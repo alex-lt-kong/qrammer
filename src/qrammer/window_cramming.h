@@ -42,7 +42,6 @@ private slots:
     void on_pushButton_Check_clicked();
     void on_comboBox_Score_currentTextChanged(const QString &);
     void actionResetTimer_triggered_cb();
-    void actionBossMode_triggered_cb();
     void actionStartLearning_triggered_cb();
     void actionExit_triggered_cb();
     void showContextMenu_Question(const QPoint &pt);
@@ -131,8 +130,6 @@ private:
     QSystemTrayIcon *trayIcon;    
 
     QString clientName;
-
-    bool bossMode = false;
 };
 
 
