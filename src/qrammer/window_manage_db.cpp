@@ -10,8 +10,6 @@ WindowManageDB::WindowManageDB(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::WindowManageDB)
 {
-    qDebug() << "called";
-    SPDLOG_INFO("called");
     ui->setupUi(this);
 
     ui->lineEdit_Keyword->setFocus();
@@ -40,41 +38,27 @@ WindowManageDB::~WindowManageDB()
 
 void WindowManageDB::initCategory()
 {
-    qDebug() << "called";
-    SPDLOG_INFO("called");
     ui->comboBox_Maintype_Search->clear();
-
-    QSqlQuery query = QSqlQuery(db.conn);
-    auto stmt = "SELECT DISTINCT(category) FROM knowledge_units ORDER BY category ASC";
-    if (!query.prepare(stmt)) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
-        return;
-    }
-    if (!query.exec()) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
-        return;
-    }
-
     QStringList t;
-    while (query.next())
-        t.append(query.value(0).toString());
-    // A very weird workaround: if not receving all maintypes in t first and then add them to combox, only the first item would be added.
+    try {
+        auto cats = db.getAllCategories();
+        for (const auto &cat : cats) {
+            t.append(cat.name);
+        }
+    } catch (const std::runtime_error &e) {
+        QMessageBox::warning(this, "Qrammer", e.what());
+        this->close();
+        return;
+    }
     ui->comboBox_Maintype_Search->addItems(t);
     ui->comboBox_Maintype_Meta->addItems(t);
-    db.conn.close();
 }
 
 void WindowManageDB::conductDatabaseSearch(QString field, QString keyword, QString category)
 {
     SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
-    if (!db.conn.isOpen() && !db.conn.open()) {
-        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.conn.lastError().text());
-        return;
-    }
+
     auto stmt = QString(R"***(
 SELECT id, question
 FROM knowledge_units
@@ -83,17 +67,16 @@ WHERE
     %1 LIKE :keyword
 LIMIT 50)***")
                     .arg(field);
-    auto query = QSqlQuery(db.conn);
-    if (!query.prepare(stmt)) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
-        return;
-    }
-    query.bindValue(":category", category);
-    query.bindValue(":keyword", keyword);
-    if (!query.exec()) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
+    QSqlQuery query;
+    try {
+        query = db.execSelectQuery(stmt,
+                                   std::vector<std::pair<QString, QVariant>>{{":category", category},
+                                                                             {":keyword", keyword}});
+    } catch (const std::runtime_error &e) {
+        auto errMsg
+            = QString("Error conductDatabaseSearch()ing, reason: %2").arg(currKUID).arg(e.what());
+        SPDLOG_INFO(errMsg.toStdString());
+        QMessageBox::warning(this, "Qrammer", errMsg);
         return;
     }
     searchResults = new QMap<QString, int>;
@@ -101,13 +84,6 @@ LIMIT 50)***")
     while (query.next()) {
         searchResults->insert(query.value(1).toString(), query.value(0).toInt());
         ui->listWidget_SearchResults->addItem(query.value(1).toString());
-        /*
-            if (QGuiApplication::platformName() == "windows") {
-                QFont font;
-                font.setFamily("Microsoft Yahei");
-                ui->listWidget_SearchResults->setFont(font);
-            }
-            */
     }
 
     if (ui->listWidget_SearchResults->count() > 0)
@@ -120,82 +96,16 @@ LIMIT 50)***")
 void WindowManageDB::showSingleKU(int kuID)
 {
     currKUID = kuID;
-    if (!db.conn.isOpen() && !db.conn.open()) {
-        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.conn.lastError().text());
+    try {
+        cku = db.selectKuById(currKUID);
+    } catch (const std::runtime_error &e) {
+        auto errMsg = QString("Error loading knowledge unit (ID: %1), reason: %2")
+                          .arg(currKUID)
+                          .arg(e.what());
+        SPDLOG_INFO(errMsg.toStdString());
+        QMessageBox::warning(this, "Qrammer", errMsg);
         return;
-    }
-    auto query = QSqlQuery(db.conn);
-    auto columns = QString(R"***(
-id,
-question,
-answer,
-passing_score,
-previous_score,
-times_practiced,
-insert_time,
-first_practice_time,
-last_practice_time,
-deadline,
-category,
-question_image,
-answer_image)***");
-    auto stmt = QString("SELECT %1 FROM knowledge_units WHERE id = :id").arg(columns);
-    if (!query.prepare(stmt)) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
-        return;
-    }
-    query.bindValue(":id", kuID);
-    if (!query.exec()) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
-        return;
-    }
-    if (query.next()) {
-        ui->lineEdit_KUID->setText(query.value(0).toString());
-        ui->plainTextEdit_Question->setPlainText(query.value(1).toString());
-        ui->plainTextEdit_Answer->setPlainText(query.value(2).toString());
-        ui->lineEdit_PassingScore->setText(query.value(3).toString());
-        ui->lineEdit_TimesPracticed->setText(query.value(5).toString());
-        ui->comboBox_Maintype_Meta->setEditText(query.value(10).toString());
-        ui->lineEdit_Deadline->setText(query.value(9).toDateTime().toString("yyyy-MM-dd HH:mm:ss"));
-
-        ui->lineEdit_InsertDate->setText(query.value(6).toDateTime().toString("yyyy-MM-dd"));
-        ui->lineEdit_1stPracticeDate->setText(query.value(7).toDateTime().toString("yyyy-MM-dd"));
-        ui->lineEdit_LastPracticeDate->setText(query.value(8).toDateTime().toString("yyyy-MM-dd"));
-        ui->lineEdit_PreviousScore->setText(QString::number(query.value(4).toInt()));
-
-        auto questionImageBytes = query.value(11).toByteArray();
-        if (questionImageBytes.size() > 0) {
-            QPixmap questionImage;
-            if (questionImage.loadFromData(questionImageBytes)) {
-                ui->label_QuestionImage->setPixmap(questionImage);
-            } else {
-                ui->label_QuestionImage->setText("[ERROR]");
-                SPDLOG_WARN("KnowledgeUnit ID={} appears to have image data, but it is invalid",
-                            ui->lineEdit_KUID->text().toStdString());
-            }
-        } else {
-            ui->label_AnswerImage->setText("[Empty]");
-        }
-        auto answerImageBytes = query.value(12).toByteArray();
-        if (answerImageBytes.size() > 0) {
-            QPixmap answerImage;
-            if (answerImage.loadFromData(answerImageBytes)) {
-                ui->label_AnswerImage->setPixmap(answerImage);
-            } else {
-                ui->label_AnswerImage->setText("[ERROR]");
-                SPDLOG_WARN("KnowledgeUnit ID={} appears to have image data, but it is invalid",
-                            ui->lineEdit_KUID->text().toStdString());
-            }
-        } else {
-            ui->label_AnswerImage->setText("[Empty]");
-        }
-
-        ui->pushButton_WriteDB->setText("Update");
-        ui->pushButton_Delete->setEnabled(true);
-    } else {
+    } catch (const std::invalid_argument &e) {
         ui->lineEdit_KUID->setText("");
 
         if (ui->comboBox_Field->currentText() == "Question") {
@@ -224,20 +134,54 @@ answer_image)***");
         ui->listWidget_SearchResults->clearSelection();
 
         currKUID = -1;
+        return;
     }
-    // db.close();
+
+    ui->lineEdit_KUID->setText(QString::number(cku.ID));
+    ui->plainTextEdit_Question->setPlainText(cku.Question);
+    ui->plainTextEdit_Answer->setPlainText(cku.Answer);
+    ui->lineEdit_PassingScore->setText(QString::number(cku.PassingScore));
+    ui->lineEdit_TimesPracticed->setText(QString::number(cku.TimesPracticed));
+    ui->comboBox_Maintype_Meta->setEditText(cku.Category);
+    ui->lineEdit_Deadline->setText(cku.Deadline.toString("yyyy-MM-dd HH:mm:ss"));
+
+    ui->lineEdit_InsertDate->setText(cku.InsertTime.toString("yyyy-MM-dd"));
+    ui->lineEdit_1stPracticeDate->setText(cku.FirstPracticeTime.toString("yyyy-MM-dd"));
+    ui->lineEdit_LastPracticeDate->setText(cku.LastPracticeTime.toString("yyyy-MM-dd"));
+    ui->lineEdit_PreviousScore->setText(QString::number(cku.PreviousScore));
+
+    if (cku.QuestionImageBytes.size() > 0) {
+        QPixmap questionImage;
+        if (questionImage.loadFromData(cku.QuestionImageBytes)) {
+            ui->label_QuestionImage->setPixmap(questionImage);
+        } else {
+            ui->label_QuestionImage->setText("[ERROR]");
+            SPDLOG_WARN("KnowledgeUnit ID={} appears to have image data, but it is invalid",
+                        ui->lineEdit_KUID->text().toStdString());
+        }
+    } else {
+        ui->label_AnswerImage->setText("[Empty]");
+    }
+
+    if (cku.AnswerImageBytes.size() > 0) {
+        QPixmap answerImage;
+        if (answerImage.loadFromData(cku.AnswerImageBytes)) {
+            ui->label_AnswerImage->setPixmap(answerImage);
+        } else {
+            ui->label_AnswerImage->setText("[ERROR]");
+            SPDLOG_WARN("KnowledgeUnit ID={} appears to have image data, but it is invalid",
+                        ui->lineEdit_KUID->text().toStdString());
+        }
+    } else {
+        ui->label_AnswerImage->setText("[Empty]");
+    }
+
+    ui->pushButton_WriteDB->setText("Update");
+    ui->pushButton_Delete->setEnabled(true);
 }
 
-bool WindowManageDB::inputAvailabilityCheck()
+bool WindowManageDB::inputValidityCheck()
 {
-    if (ui->plainTextEdit_Question->toPlainText().size() <= 0) {
-        QMessageBox::information(this, "Information missing", "Field [Question] must be filled");
-        return false;
-    }
-    if (ui->plainTextEdit_Answer->toPlainText().size() <= 0) {
-        QMessageBox::information(this, "Information missing", "Field [Answer] must be filled");
-        return false;
-    }
     if (ui->comboBox_Maintype_Meta->currentText().size() <= 0) {
         QMessageBox::information(this, "Information missing", "Field [Category] must be filled");
         return false;
@@ -306,7 +250,7 @@ void WindowManageDB::on_lineEdit_Keyword_textChanged(const QString &)
 
 void WindowManageDB::on_pushButton_WriteDB_clicked()
 {
-    if (!inputAvailabilityCheck())
+    if (!inputValidityCheck())
         return;
 
     if (!db.conn.isOpen() && !db.conn.open()) {
@@ -456,37 +400,24 @@ void WindowManageDB::on_listWidget_SearchResults_doubleClicked(const QModelIndex
 void WindowManageDB::on_pushButton_Delete_clicked()
 {
     if (QMessageBox::question(this,
-                              "QJLT - KU Deletion",
-                              "Sure to remove the KU [" + QString::number(currKUID) + "]?",
+                              "Qrammer",
+                              QString("Sure to remove the KU [%1]?").arg(currKUID),
                               QMessageBox::Yes | QMessageBox::No)
         != QMessageBox::Yes)
         return;
 
-    if (!db.conn.isOpen() && !db.conn.open()) {
-        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.conn.lastError().text());
+    try {
+        db.deleteKu(currKUID);
+    } catch (const std::runtime_error &e) {
+        auto errMsg = QString("Error deleteing knowledge unit (ID: %1), reason: %2")
+                          .arg(currKUID)
+                          .arg(e.what());
+        SPDLOG_INFO(errMsg.toStdString());
+        QMessageBox::warning(this, "Qrammer", errMsg);
         return;
     }
 
-    QSqlQuery query = QSqlQuery(db.conn);
-    if (currKUID > 0) {
-        auto stmt = "DELETE FROM knowledge_units WHERE id = :id";
-        if (!query.prepare(stmt)) {
-            SPDLOG_ERROR(query.lastError().text().toStdString());
-            QMessageBox::critical(this, "Error", query.lastError().text());
-            return;
-        }
-        query.bindValue(":id", currKUID);
-        if (!query.exec()) {
-            SPDLOG_ERROR(query.lastError().text().toStdString());
-            QMessageBox::critical(this, "Error", query.lastError().text());
-            return;
-        }
-    }
-
     showSingleKU(-1);
-    // db.close();
-
     on_lineEdit_Keyword_textChanged(nullptr);
 }
 

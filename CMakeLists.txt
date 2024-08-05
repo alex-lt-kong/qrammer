@@ -50,7 +50,7 @@ qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     resources/qrammer-db-tool.ico
     resources/qrammer-db-tool.ico
     resources/res.qrc
-    src/qrammer/window_paramters.h
+
     cmake/compiler-flags.cmake cmake/sanitizers.cmake
     cmake/git.cmake
 

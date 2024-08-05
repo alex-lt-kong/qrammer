@@ -49,7 +49,7 @@ WHERE
 )***";
     auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category);
-    execQuery(query);
+    execPreparedQuery(query);
     if (query.next()) {
         dueNumByCat = query.value(0).toInt();
         SPDLOG_INFO("dueNum of category [{}]: {}", category.toStdString(), dueNumByCat);
@@ -69,7 +69,7 @@ WHERE category = :category AND is_shelved = 0
 )***";
     auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", category.name);
-    execQuery(query);
+    execPreparedQuery(query);
     if (query.next()) {
         totalKUCount = query.value(0).toInt();
         SPDLOG_INFO("totalKUCount of category [{}]: {}", category.name.toStdString(), totalKUCount);
@@ -141,6 +141,23 @@ LIMIT 1
     }
 }
 
+struct KnowledgeUnit DB::selectKuById(const int kuid)
+{
+    auto stmt = QString(R"***(
+SELECT %1
+FROM knowledge_units
+WHERE id = :id
+)***")
+                    .arg(kuColumns);
+    auto query = execSelectQuery(stmt, std::vector<std::pair<QString, QVariant>>{{":id", kuid}});
+    if (query.first()) {
+        return fillinKu(query);
+    } else {
+        throw invalid_argument(
+            QString("Knowledge unit with ID = %1 does not exist").arg(kuid).toStdString());
+    }
+}
+
 struct KnowledgeUnit DB::getRandomOldKu(const Category &cat)
 {
     auto stmt = QString(R"***(
@@ -163,7 +180,7 @@ ORDER BY RANDOM() LIMIT 1
                     .arg(cat.dueKuCount);
     auto query = openConnThenPrepareQuery(stmt);
     query.bindValue(":category", cat.name);
-    execQuery(query);
+    execPreparedQuery(query);
     if (query.first()) {
         return fillinKu(query);
     } else {
@@ -202,7 +219,7 @@ void DB::openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query)
     }
 }
 
-void DB::execQuery(QSqlQuery &query)
+void DB::execPreparedQuery(QSqlQuery &query)
 {
     if (!query.exec())
         throw runtime_error("Failed to query.exec(): " + query.lastError().text().toStdString());
@@ -232,7 +249,6 @@ struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
 
 QSqlQuery DB::getQueryForKuTableView(const bool isWidthScreen)
 {
-    SPDLOG_INFO("QSqlQuery DB::getQueryForKuTableView(const bool isWidthScreen)");
     QString stmt;
     if (isWidthScreen) {
         stmt = R"***(
@@ -259,9 +275,7 @@ ORDER BY last_practice_time DESC
 )***";
     }
 
-    auto query = openConnThenPrepareQuery(stmt);
-    execQuery(query);
-    return query;
+    return execSelectQuery(stmt);
 }
 
 std::vector<Category> DB::getAllCategories()
@@ -272,42 +286,23 @@ FROM knowledge_units
 WHERE is_shelved = 0
 ORDER BY category DESC
 )";
-    // QSqlQuery query;
-    auto query = openConnThenPrepareQuery(stmt);
-    execQuery(query);
+    auto query = execSelectQuery(stmt);
     auto allCats = std::vector<Category>();
-    // qDebug() << "query.record(): " << query.record();
-    // qDebug() << "query.size(): " << query.size();
-    // qDebug() << "query.numRowsAffected(): " << query.numRowsAffected();
 
-    // query.seek(-1);
-    /*
     while (query.next()) {
-        qDebug() << query.value(0).toString();
         struct Category t;
         t.name = query.value(0).toString();
         t.KuToCramCount = 0;
         t.snapshot = Snapshot(t.name);
         updateSnapshot(t.snapshot);
         allCats.emplace_back(t);
-    }*/
-
-    if (query.last()) {
-        do {
-            struct Category t;
-            t.name = query.value(0).toString();
-            t.KuToCramCount = 0;
-            t.snapshot = Snapshot(t.name);
-            updateSnapshot(t.snapshot);
-            allCats.emplace_back(t);
-        } while (query.previous());
     }
-
     return allCats;
 }
 
 void DB::updateSnapshot(Snapshot &snap)
 {
+    auto catBinding = std::vector<std::pair<QString, QVariant>>{{":category", snap.category}};
     openConnection();
     auto query = QSqlQuery(conn);
     query.prepare(
@@ -366,54 +361,75 @@ void DB::updateSnapshot(Snapshot &snap)
         snap.sixMonthCvrg = 0;
     query.finish();
 
-    query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
-                  "times_practiced > 0  AND last_practice_time > DATETIME('now', 'localtime', "
-                  "'-14 day') AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.biWeeklyCvrg = query.value(0).toDouble() / snap.total;
-    else
-        snap.biWeeklyCvrg = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0  AND
+    last_practice_time > DATETIME('now', 'localtime', '-14 day') AND
+    LENGTH(last_practice_time) > 0 AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.biWeeklyCvrg = query.first() ? query.value(0).toDouble() / snap.total : 0;
+    }
 
-    query.prepare("SELECT AVG(times_practiced) FROM knowledge_units WHERE category = :category "
-                  "AND times_practiced > 0 AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.timesPracticed = query.value(0).toDouble();
-    else
-        snap.timesPracticed = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT AVG(times_practiced)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0 AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.timesPracticed = query.first() ? query.value(0).toDouble() : 0;
+    }
 
-    query.prepare("SELECT AVG(JULIANDAY(first_practice_time) - JULIANDAY(insert_time)) FROM "
-                  "knowledge_units WHERE category = :category AND times_practiced > 0 AND "
-                  "is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.daysWaited = query.value(0).toDouble();
-    else
-        snap.daysWaited = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT AVG(JULIANDAY(first_practice_time) - JULIANDAY(insert_time))
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0 AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.daysWaited = query.first() ? query.value(0).toDouble() : 0;
+    }
 
-    query.prepare("SELECT SUM(time_used) / 3600.0 FROM knowledge_units WHERE category = "
-                  ":category AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.timeSpent = query.value(0).toDouble();
-    else
-        snap.timeSpent = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT SUM(time_used) / 3600.0
+FROM knowledge_units
+WHERE
+    category = :category AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.timeSpent = query.first() ? query.value(0).toDouble() : 0;
+    }
 
-    query.prepare(
-        "SELECT last_practice_time FROM knowledge_units WHERE category = :category AND "
-        "times_practiced > 0 AND is_shelved = 0 ORDER BY last_practice_time DESC LIMIT 1 ");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.lastStudied = query.value(0).toDateTime();
-    else
-        snap.lastStudied = QDateTime::fromString("1970-01-01 00:00:00", "yyyy-MM-dd hh:mm:ss");
-    query.finish();
-    conn.close();
+    {
+        auto stmt = R"***(
+SELECT last_practice_time
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0 AND
+    is_shelved = 0
+ORDER BY last_practice_time
+DESC LIMIT 1
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.lastStudied = query.first() ? query.value(0).toDateTime()
+                                         : QDateTime::fromString("1970-01-01 00:00:00",
+                                                                 "yyyy-MM-dd hh:mm:ss");
+    }
 }
 
 void DB::updateKu(const struct KnowledgeUnit &ku)
@@ -448,7 +464,7 @@ WHERE id = :id
     query.bindValue(":id", ku.ID);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
     query.bindValue(":question_image", ku.QuestionImageBytes);
-    execQuery(query);
+    execPreparedQuery(query);
 }
 
 std::vector<std::tuple<QString, QString>> DB::getSearchOptions()
@@ -458,8 +474,7 @@ SELECT name, url
 FROM search_options
 ORDER BY id ASC
 )";
-    auto query = openConnThenPrepareQuery(stmt);
-    execQuery(query);
+    auto query = execSelectQuery(stmt);
     auto options = std::vector<std::tuple<QString, QString>>();
     while (query.next()) {
         options.emplace_back(query.value(0).toString(), query.value(1).toString());
@@ -469,11 +484,27 @@ ORDER BY id ASC
 
 void DB::deleteKu(const struct KnowledgeUnit &ku)
 {
+    deleteKu(ku.ID);
+}
+
+void DB::deleteKu(const int kuId)
+{
     auto stmt = QString(R"**(
 DELETE FROM knowledge_units
 WHERE id = :id
 )**");
     auto query = openConnThenPrepareQuery(stmt);
-    query.bindValue(":id", ku.ID);
-    execQuery(query);
+    query.bindValue(":id", kuId);
+    execPreparedQuery(query);
+}
+
+QSqlQuery DB::execSelectQuery(const QString &stmt,
+                              const std::vector<std::pair<QString, QVariant>> &bindKvs)
+{
+    auto query = openConnThenPrepareQuery(stmt);
+    for (const auto &kv : bindKvs) {
+        query.bindValue(kv.first, kv.second);
+    }
+    execPreparedQuery(query);
+    return query;
 }

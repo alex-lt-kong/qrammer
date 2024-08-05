@@ -22,10 +22,15 @@ public:
     struct KnowledgeUnit getRandomOldKu(const Category &cat);
     void updateKu(const struct KnowledgeUnit &ku);
     void deleteKu(const struct KnowledgeUnit &ku);
+    void deleteKu(const int kuId);
+    struct KnowledgeUnit selectKuById(const int kuId);
     void openConnection();
     QSqlQuery openConnThenPrepareQuery(const QString &stmt);
     void openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query);
-    void execQuery(QSqlQuery &query);
+    void execPreparedQuery(QSqlQuery &query);
+    QSqlQuery execSelectQuery(const QString &stmt,
+                              const std::vector<std::pair<QString, QVariant>> &bindKvs
+                              = std::vector<std::pair<QString, QVariant>>{});
     std::string getDatabasePath();
     std::vector<Category> getAllCategories();
     QSqlQuery getQueryForKuTableView(const bool isWidthScreen);

@@ -36,8 +36,6 @@ void execExternalProgramAsync(const string cmd)
 
 QPixmap selectImageFromFileSystem()
 {
-    qDebug() << "(int) (QApplication::primaryScreen()->availableGeometry().height() / 2.2): "
-             << (int) (QApplication::primaryScreen()->availableGeometry().height() / 2.2);
     QString fileName = QFileDialog::getOpenFileName(nullptr,
                                                     "Select an image",
                                                     nullptr,
