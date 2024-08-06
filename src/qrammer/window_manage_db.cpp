@@ -118,6 +118,8 @@ void WindowManageDB::showSingleKU(int kuID)
             ui->plainTextEdit_Question->setPlainText("");
             ui->plainTextEdit_Answer->setPlainText("");
         }
+        ui->label_QuestionImage->setText("[Empty]");
+        ui->label_AnswerImage->setText("[Empty]");
 
         ui->lineEdit_TimesPracticed->setText("");
 
@@ -160,7 +162,7 @@ void WindowManageDB::showSingleKU(int kuID)
                         ui->lineEdit_KUID->text().toStdString());
         }
     } else {
-        ui->label_AnswerImage->setText("[Empty]");
+        ui->label_QuestionImage->setText("[Empty]");
     }
 
     if (cku.AnswerImageBytes.size() > 0) {
