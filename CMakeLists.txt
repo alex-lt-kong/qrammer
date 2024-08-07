@@ -16,7 +16,7 @@ include(cmake/git.cmake)
 
 qt_standard_project_setup()
 
-
+set(app_icon_resource_windows "${CMAKE_CURRENT_SOURCE_DIR}/resources/photosurface.rc")
 qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/main.cpp
     src/qrammer/window_overview.cpp

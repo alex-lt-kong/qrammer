@@ -20,5 +20,5 @@ void init_logger()
     spdlog::logger lgr("multi_sink", {stdout_sink, rotating_sink});
 
     spdlog::set_default_logger(std::make_shared<logger>(lgr));
-    spdlog::set_pattern("%Y-%m-%dT%T.%f%z | %6t | %45! | %8l | %v");
+    spdlog::set_pattern("%Y-%m-%dT%T.%f%z | %6t | %40! | %8l | %v");
 }

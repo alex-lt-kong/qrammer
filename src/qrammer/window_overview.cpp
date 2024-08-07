@@ -105,6 +105,7 @@ void MainWindow::initUi_Stats()
 
 void MainWindow::initUi(QSqlQuery &query)
 {
+    setWindowIcon(QIcon(":/qrammer.ico"));
     setWindowTitle(QString("%1 (git commit: %2)").arg(windowTitle(), GIT_COMMIT_HASH));
     initUi_Stats();
     initUi_Overview(query);

@@ -470,7 +470,7 @@ void CrammingWindow::initNextKU()
     spdlog::default_logger()->flush();
 }
 
-int CrammingWindow::pickCategoryforNewKU()
+size_t CrammingWindow::pickCategoryforNewKU()
 {
     size_t r = ranGen.generate() % remainingKUsToCram;
     size_t s = 0;

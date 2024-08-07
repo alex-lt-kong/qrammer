@@ -12,7 +12,7 @@ DB::DB() {}
 
 DB::DB(const std::filesystem::path &dbPath)
 {
-    qDebug() << "DB::DB(const std::filesystem::path &dbPath)";
+    // qDebug() << "DB::DB(const std::filesystem::path &dbPath)";
     conn = QSqlDatabase::addDatabase("QSQLITE");
     databaseName = dbPath.string();
     conn.setDatabaseName(QString::fromStdString(dbPath.string()));
@@ -351,15 +351,20 @@ void DB::updateSnapshot(Snapshot &snap)
         snap.cvrg = 0;
     query.finish();
 
-    query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
-                  "times_practiced > 0  AND last_practice_time > DATETIME('now', 'localtime', "
-                  "'-180 day') AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.sixMonthCvrg = query.value(0).toDouble() / snap.total;
-    else
-        snap.sixMonthCvrg = 0;
-    query.finish();
+
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0  AND
+    last_practice_time > DATETIME('now', 'localtime', '-180 day') AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.sixMonthCvrg = query.first() ?  query.value(0).toDouble() / snap.total : 0;
+    }
 
     {
         auto stmt = R"***(

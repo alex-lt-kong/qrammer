@@ -107,7 +107,7 @@ private:
     void showContextMenu_Common(QTextEdit *edit, QMenu* menu, const QPoint &pt);
     void setWindowStyle();
     QString convertStringToFilename(QString name);
-    int pickCategoryforNewKU();
+    size_t pickCategoryforNewKU();
     bool downloadTTSFile(QString text);
     bool promptUserToRetryDBError(QString operationName, QString lastError);
     void startInterval();
@@ -120,7 +120,7 @@ private:
     void restoreWindowLayout();
     void updateCkuByGuiElements();
 
-    int currCatIndex;
+    size_t currCatIndex;
     size_t totalKuToCram;
     size_t remainingKUsToCram;
 
