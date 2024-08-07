@@ -2,8 +2,9 @@
 #include "db.h"
 #include "msgbox.h"
 #include "src/qrammer/global_variables.h"
+#include "src/qrammer/ui_window_cramming.h"
 #include "src/qrammer/window_manage_db.h"
-#include "ui_window_cramming.h"
+// #include "ui_window_cramming.h"
 #include "utils.h"
 
 #include <QAudioOutput>
@@ -1030,6 +1031,6 @@ void CrammingWindow::on_pushButton_ChooseAnswerImage_clicked()
 
 void CrammingWindow::on_pushButton_ManageDB_clicked()
 {
-    auto w = new WindowManageDB();
+    auto w = new WindowManageDB(this);
     w->show();
 }
