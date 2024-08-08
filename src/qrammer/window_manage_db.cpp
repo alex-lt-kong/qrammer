@@ -106,6 +106,7 @@ void WindowManageDB::showSingleKU(int kuID)
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
     } catch (const std::invalid_argument &e) {
+        (void) e;
         ui->lineEdit_KUID->setText("");
 
         if (ui->comboBox_Field->currentText() == "Question") {
@@ -210,11 +211,6 @@ bool WindowManageDB::inputValidityCheck()
         return false;
     }
     return true;
-}
-
-void WindowManageDB::on_pushButton_Quit_clicked()
-{
-    this->close();
 }
 
 void WindowManageDB::on_comboBox_Field_currentTextChanged(const QString &)

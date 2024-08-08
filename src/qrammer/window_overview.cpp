@@ -5,13 +5,19 @@
 #include "window_cramming.h"
 #include "window_manage_db.h"
 
+#include <QBarCategoryAxis>
+#include <QBarSeries>
+#include <QChart>
+#include <QChartView>
 #include <QDir>
 #include <QRegularExpression>
+#include <QValueAxis>
 #include <spdlog/spdlog.h>
 
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+    , winDb(new WindowManageDB(this))
 {
     ui->setupUi(this);
 }
@@ -25,7 +31,7 @@ bool MainWindow::init()
 {
     QSqlQuery q;
     try {
-        allCats = db.getAllCategories();
+        availableCategory = db.getAllCategories();
         q = db.getQueryForKuTableView(QGuiApplication::primaryScreen()->geometry().width() >= 1080);
     } catch (const std::runtime_error &e) {
         auto errMsg = QString("db.getAllCategories() failed: %1").arg(e.what());
@@ -82,12 +88,42 @@ void MainWindow::initUi_Overview(QSqlQuery &query)
     ui->tableView_KU->grabGesture(Qt::SwipeGesture);
 }
 
+void MainWindow::initUi_PrograssBarChart()
+{
+    // TODO: does it leak memory?
+    QBarSeries *series = new QBarSeries(this);
+    for (auto const &cat : availableCategory) {
+        series->append(cat.set.get());
+    }
+    auto chart = new QChart();
+    chart->addSeries(series);
+    // chart->setTitle("Simple Bar Chart");
+    chart->setAnimationOptions(QChart::SeriesAnimations);
+    QStringList dates;
+    for (int i = progressLookBackDays; i > 0; --i) {
+        dates.append(QString::number(i * -1));
+    }
+    auto axisX = new QBarCategoryAxis;
+    axisX->append(dates);
+    chart->addAxis(axisX, Qt::AlignBottom);
+    series->attachAxis(axisX);
+
+    auto axisY = new QValueAxis;
+    axisY->setRange(0, 15);
+    chart->addAxis(axisY, Qt::AlignRight);
+    series->attachAxis(axisY);
+    auto cv = new QChartView(chart, this);
+    cv->setRenderHint(QPainter::Antialiasing);
+
+    ui->gridLayout_PrograssBarChat->addWidget(cv);
+}
+
 void MainWindow::initUi_CrammingSchedule()
 {
-    for (int i = 0; i < allCats.size(); i++) {
+    for (size_t i = 0; i < availableCategory.size(); i++) {
         ui->lineEdit_KusToCramByCategory->setPlaceholderText(
-            ui->lineEdit_KusToCramByCategory->placeholderText() + allCats[i].name
-            + (i < allCats.size() - 1 ? ", " : ""));
+            ui->lineEdit_KusToCramByCategory->placeholderText() + availableCategory[i].name
+            + (i < availableCategory.size() - 1 ? ", " : ""));
     }
 
     ui->lineEdit_KusToCramByCategory->setFocus();
@@ -95,8 +131,9 @@ void MainWindow::initUi_CrammingSchedule()
 
 void MainWindow::initUi_Stats()
 {
-    for (int i = 0; i < allCats.size(); i++) {
-        ui->plainTextEdit_Statistics->appendPlainText(allCats[i].snapshot.getSnapshotString());
+    for (size_t i = 0; i < availableCategory.size(); i++) {
+        ui->plainTextEdit_Statistics->appendPlainText(
+            availableCategory[i].snapshot.getSnapshotString());
     }
     QFont font("Monospace");
     font.setStyleHint(QFont::TypeWriter);
@@ -110,6 +147,7 @@ void MainWindow::initUi(QSqlQuery &query)
     initUi_Stats();
     initUi_Overview(query);
     initUi_Settings();
+    initUi_PrograssBarChart();
     initUi_CrammingSchedule();
 }
 
@@ -131,10 +169,10 @@ void MainWindow::on_pushButton_Start_clicked()
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_KusToCramByCategory->text().split(rx);
 
-    int t = 0;
-    for (int i = 0; i < number.count() && i < allCats.size(); i++) {
-        allCats[i].KuToCramCount = number.at(i).toInt();
-        t += allCats.at(i).KuToCramCount;
+    size_t t = 0;
+    for (size_t i = 0; i < number.count() && i < availableCategory.size(); i++) {
+        availableCategory[i].KuToCramCount = number.at(i).toInt();
+        t += availableCategory[i].KuToCramCount;
     }
 
     if (t == 0) {
@@ -148,13 +186,12 @@ void MainWindow::on_pushButton_Start_clicked()
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
     if (tt.count() == 2) {
-        t1 = tt.at(0).toInt();
-        t2 = tt.at(1).toInt();
+        t1 = tt[0].toInt();
+        t2 = tt[1].toInt();
     }
 
     ui->pushButton_Start->setEnabled(false);
-    cW->init(allCats,
-             settings.value("NewKUCoeff", 50).toUInt(),
+    cW->init(settings.value("NewKUCoeff", 50).toUInt(),
              t1,
              t2,
              settings.value("WindowStyle", "1111").toInt());
@@ -204,11 +241,6 @@ void MainWindow::on_pushButton_Start_pressed()
     MainWindow::on_pushButton_Start_clicked();
 }
 
-void MainWindow::on_pushButton_Quit_pressed()
-{
-    MainWindow::on_pushButton_Quit_clicked();
-}
-
 void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
 {
     (void)arg1;
@@ -218,6 +250,5 @@ void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
 
 void MainWindow::on_pushButto_Manage_clicked()
 {
-    auto w = new WindowManageDB(this);
-    w->show();
+    winDb->show();
 }

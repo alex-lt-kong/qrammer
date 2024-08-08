@@ -27,7 +27,6 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
-    void on_pushButton_Quit_clicked();
     void on_comboBox_Field_currentTextChanged(const QString &);
     void on_comboBox_Maintype_Search_currentTextChanged(const QString &);
     void on_listWidget_SearchResults_currentTextChanged(const QString &currentText);

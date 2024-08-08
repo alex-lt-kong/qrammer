@@ -20,14 +20,14 @@ public:
     struct KnowledgeUnit getUrgentKu(const QString &category);
     struct KnowledgeUnit getNewKu(const QString &category);
     struct KnowledgeUnit getRandomOldKu(const Category &cat);
-    void updateKu(const struct KnowledgeUnit &ku);
+    int updateKu(const struct KnowledgeUnit &ku);
     void deleteKu(const struct KnowledgeUnit &ku);
     void deleteKu(const int kuId);
     struct KnowledgeUnit selectKuById(const int kuId);
     void openConnection();
     QSqlQuery openConnThenPrepareQuery(const QString &stmt);
     void openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query);
-    void execPreparedQuery(QSqlQuery &query);
+    int execPreparedQuery(QSqlQuery &query);
     QSqlQuery execSelectQuery(const QString &stmt,
                               const std::vector<std::pair<QString, QVariant>> &bindKvs
                               = std::vector<std::pair<QString, QVariant>>{});

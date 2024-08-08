@@ -15,6 +15,7 @@
 CrammingWindow::CrammingWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::CrammingWindow)
+    , winDb(new WindowManageDB(this))
 {
     ui->setupUi(this);
 
@@ -32,23 +33,6 @@ CrammingWindow::CrammingWindow(QWidget *parent)
     clientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
 
     cku.PreviousScore = 0;
-}
-
-void CrammingWindow::saveWindowLayout()
-{
-    /*
-    wp.geometry = this->saveGeometry();
-    wp.state = this->saveState();
-    wp.pos = this->pos();*/
-}
-
-void CrammingWindow::restoreWindowLayout()
-{
-    /*
-    this->restoreGeometry(wp.geometry);
-    this->restoreState(wp.state);
-    this->move(wp.pos);
-*/
 }
 
 CrammingWindow::~CrammingWindow()
@@ -98,21 +82,16 @@ void CrammingWindow::initPlatformSpecificSettings()
     this->setStyleSheet(styleSheet);
 }
 
-void CrammingWindow::init(std::vector<Category> availableCat,
-                          uint32_t newKuCoeff,
-                          int interval,
-                          int number,
-                          int windowStyle)
+void CrammingWindow::init(uint32_t newKuCoeff, int interval, int number, int windowStyle)
 {
-    this->availableCategory = availableCat;
     this->newKuCoeff = newKuCoeff;
     this->interval = interval;
     this->number = number;
     this->windowStyle = windowStyle;
 
     totalKuToCram = 0;
-    for (size_t i = 0; i < availableCat.size(); i++)
-        totalKuToCram += availableCat[i].KuToCramCount;
+    for (size_t i = 0; i < availableCategory.size(); i++)
+        totalKuToCram += availableCategory[i].KuToCramCount;
 
     remainingKUsToCram = totalKuToCram;
 
@@ -145,7 +124,6 @@ void CrammingWindow::on_pushButton_Next_clicked()
 void CrammingWindow::startInterval()
 {
     secDelayed = 0;
-    // saveWindowLayout();
     hide();
     timerDelay->start(1000);
 }
@@ -249,7 +227,11 @@ bool CrammingWindow::finalizeKuJustBeingCrammed()
 
     while (true) {
         try {
-            db.updateKu(cku);
+            int rowsAffected;
+            if ((rowsAffected = db.updateKu(cku)) != 1)
+                QMessageBox::warning(this,
+                                     "Qrammer",
+                                     QString("%1 units affected, expecting 1").arg(rowsAffected));
             break;
         } catch (const std::runtime_error &e) {
             auto errMsg = std::string("Error db.updateKu(cku): ") + e.what();
@@ -265,7 +247,7 @@ bool CrammingWindow::finalizeKuJustBeingCrammed()
     availableCategory[currCatIndex].KuToCramCount--;
     remainingKUsToCram--;
     size_t sum = 0;
-    for (const auto& cat : availableCategory)
+    for (const auto &cat : availableCategory)
         sum += cat.KuToCramCount;
     assert(sum == remainingKUsToCram);
 
@@ -419,15 +401,6 @@ void CrammingWindow::postKuLoadGuiUpdate()
 
     ui->textEdit_Response->setFocus();
 
-    /*
-    QPixmap answerImage;
-    if (answerImage.loadFromData(cku.AnswerImageBytes)) {
-        auto w = std::min(answerImage.width(), ANSWER_IMAGE_DIMENSION);
-        auto h = std::min(answerImage.height(), ANSWER_IMAGE_DIMENSION);
-        answerImage = answerImage.scaled(QSize(w, h), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        ui->label_AnswerImage->setPixmap(answerImage);
-    }
-    */
     ui->label_AnswerImage->setText("[Hidden]");
     this->setUpdatesEnabled(true);
     this->repaint(); // Without repaint, the whole window will not be painted at all.
@@ -508,7 +481,7 @@ void CrammingWindow::loadNextKu(int recursion_depth)
         // let someone higher up the call stack handle it if they want
         throw;
     }
-    auto currCat = availableCategory[currCatIndex];
+    auto &currCat = availableCategory[currCatIndex];
 
     auto msg = QString("Remaining KUs to be crammed by category: ");
     for (size_t i = 0; i < availableCategory.size(); i++) {
@@ -762,22 +735,30 @@ void CrammingWindow::initTrayMenu()
 
     QMenu* menuTray = new QMenu(this);
 
-    QAction* actionStartLearning = menuTray->addAction("Start Learning NOW!");
-    connect(actionStartLearning,
+    connect(menuTray->addAction("Start cramming NOW!"),
             SIGNAL(triggered()),
             this,
             SLOT(actionStartLearning_triggered_cb()));
-    menuTray->addAction(actionStartLearning);
 
-    QAction* actionResetTimer = menuTray->addAction("Reset Timer");
-    connect(actionResetTimer, SIGNAL(triggered()), this, SLOT(actionResetTimer_triggered_cb()));
-    menuTray->addAction(actionResetTimer);
+    connect(menuTray->addAction("Reset Timer"),
+            SIGNAL(triggered()),
+            this,
+            SLOT(actionResetTimer_triggered_cb()));
 
-    QAction* actionExit = menuTray->addAction("Exit");
-    connect(actionExit, SIGNAL(triggered()), this, SLOT(actionExit_triggered_cb()));
-    menuTray->addAction(actionExit);
+    connect(menuTray->addAction("Manage DB"),
+            SIGNAL(triggered()),
+            this,
+            SLOT(actionManageDb_triggered_cb()));
 
+    connect(menuTray->addAction("Exit"), SIGNAL(triggered()), this, SLOT(actionExit_triggered_cb()));
+
+    // QSystemTrayIcon does NOT take the ownership of QMenu
     trayIcon->setContextMenu(menuTray);
+}
+
+void CrammingWindow::actionManageDb_triggered_cb()
+{
+    winDb->show();
 }
 
 void CrammingWindow::actionStartLearning_triggered_cb()
@@ -898,43 +879,39 @@ void CrammingWindow::resizeEvent(QResizeEvent *event)
 
 void CrammingWindow::keyPressEvent(QKeyEvent *event)
 {
-    qDebug() << "pressed";
-    qDebug() << "event->modifiers()&Qt::ControlModifier: "
-             << (event->modifiers() & Qt::ControlModifier);
-    qDebug() << "event->key(): " << event->key();
-    if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
+    auto em = event->modifiers();
+    auto ek = event->key();
+    qDebug() << "event->modifiers(): " << em << ", event->key(): " << ek;
+    if (em & Qt::ControlModifier && (ek == Qt::Key_Enter || ek == Qt::Key_Return)) {
         on_pushButton_Check_clicked();
-
-    if (event->key() == Qt::Key_PageDown)
+    } else if (em & Qt::ControlModifier && ek == Qt::Key_H) {
+        startInterval();
+    } else if (em & Qt::ControlModifier && (ek == Qt::Key_PageDown || ek == Qt::Key_Down)) {
         on_pushButton_Next_clicked();
-
-    if (ui->comboBox_Score->isEnabled()) {
-        if (event->key() == Qt::Key_Escape)
+    } else if (ui->comboBox_Score->isEnabled()) {
+        if (ek == Qt::Key_Escape)
             ui->comboBox_Score->setCurrentText("0");
-        if (event->key() == Qt::Key_F1)
+        if (ek == Qt::Key_F1)
             ui->comboBox_Score->setCurrentText("10");
-        if (event->key() == Qt::Key_F2)
+        if (ek == Qt::Key_F2)
             ui->comboBox_Score->setCurrentText("20");
-        if (event->key() == Qt::Key_F3)
+        if (ek == Qt::Key_F3)
             ui->comboBox_Score->setCurrentText("30");
-        if (event->key() == Qt::Key_F4)
+        if (ek == Qt::Key_F4)
             ui->comboBox_Score->setCurrentText("40");
-        if (event->key() == Qt::Key_F5)
+        if (ek == Qt::Key_F5)
             ui->comboBox_Score->setCurrentText("50");
-        if (event->key() == Qt::Key_F6)
+        if (ek == Qt::Key_F6)
             ui->comboBox_Score->setCurrentText("60");
-        if (event->key() == Qt::Key_F7)
+        if (ek == Qt::Key_F7)
             ui->comboBox_Score->setCurrentText("70");
-        if (event->key() == Qt::Key_F8)
+        if (ek == Qt::Key_F8)
             ui->comboBox_Score->setCurrentText("80");
-        if (event->key() == Qt::Key_F9)
+        if (ek == Qt::Key_F9)
             ui->comboBox_Score->setCurrentText("90");
-        if (event->key() == Qt::Key_F10)
+        if (ek == Qt::Key_F10)
             ui->comboBox_Score->setCurrentText("100");
     }
-
-/*    if (event->key() == Qt::Key_Back) This condition is not necessary: once you overriden closeEvent, the back key on Android would trigger the closeEvent by default.
-        closeEvent(nullptr); */
     QMainWindow::keyPressEvent(event);
 }
 
@@ -998,27 +975,6 @@ void CrammingWindow::on_textEdit_Response_textChanged()
     setWindowStyle();
 }
 
-void CrammingWindow::on_pushButton_Delete_clicked()
-{
-    if (QMessageBox::question(
-            this,
-            "Qrammer",
-            "Are you sure to delete this knowledge unit? This operation can't be undone.",
-            QMessageBox::No | QMessageBox::Yes,
-            QMessageBox::No)
-        == QMessageBox::Yes) {
-        try {
-            db.deleteKu(cku);
-        } catch (const std::runtime_error &e) {
-            auto errMsg = QString("Failed to DELETE KnowledgeUnit: %1").arg(e.what());
-            SPDLOG_ERROR(errMsg.toStdString());
-            QMessageBox::warning(this, "Qrammer", errMsg, QMessageBox::Ok);
-        }
-        SPDLOG_INFO("KnowledgeUnit {} DELETEed", cku.ID);
-        initNextKU();
-    }
-}
-
 void CrammingWindow::on_pushButton_ChooseQuestionImage_clicked()
 {
     ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
@@ -1031,6 +987,5 @@ void CrammingWindow::on_pushButton_ChooseAnswerImage_clicked()
 
 void CrammingWindow::on_pushButton_ManageDB_clicked()
 {
-    auto w = new WindowManageDB(this);
-    w->show();
+    winDb->show();
 }

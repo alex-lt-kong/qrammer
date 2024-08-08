@@ -1,4 +1,5 @@
 #include "db.h"
+#include "src/qrammer/global_variables.h"
 
 #include <QApplication>
 #include <QDir>
@@ -219,10 +220,11 @@ void DB::openConnThenPrepareQuery(const QString &stmt, QSqlQuery &query)
     }
 }
 
-void DB::execPreparedQuery(QSqlQuery &query)
+int DB::execPreparedQuery(QSqlQuery &query)
 {
     if (!query.exec())
         throw runtime_error("Failed to query.exec(): " + query.lastError().text().toStdString());
+    return query.numRowsAffected();
 }
 
 struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
@@ -295,7 +297,21 @@ ORDER BY category DESC
         t.KuToCramCount = 0;
         t.snapshot = Snapshot(t.name);
         updateSnapshot(t.snapshot);
-        allCats.emplace_back(t);
+        t.set = std::make_unique<QBarSet>(t.name);
+        auto catBinding = std::vector<std::pair<QString, QVariant>>{{":category", t.name}};
+        for (size_t i = progressLookBackDays; i > 0; --i) {
+            auto stmt = QString(R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    DATE(first_practice_time) = DATE('now', '-%1 day') AND
+    category = :category
+)***")
+                            .arg(i);
+            auto q = db.execSelectQuery(stmt, catBinding);
+            t.set->append(q.first() ? q.value(0).toInt() : -1);
+        }
+        allCats.emplace_back(std::move(t));
     }
     return allCats;
 }
@@ -303,54 +319,70 @@ ORDER BY category DESC
 void DB::updateSnapshot(Snapshot &snap)
 {
     auto catBinding = std::vector<std::pair<QString, QVariant>>{{":category", snap.category}};
-    openConnection();
-    auto query = QSqlQuery(conn);
-    query.prepare(
-        "SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.total = query.value(0).toInt();
-    else
-        snap.total = 0;
-    query.finish();
 
-    query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
-                  "times_practiced > 0 AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.practiced = query.value(0).toInt();
-    else
-        snap.practiced = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.total = query.first() ? query.value(0).toInt() : 0;
+    }
 
-    query.prepare(
-        "SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND times_practiced > "
-        "0 AND previous_score >= passing_score AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.learned = query.value(0).toInt();
-    else
-        snap.learned = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0 AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.practiced = query.first() ? query.value(0).toInt() : 0;
+    }
 
-    query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
-                  "deadline < DATETIME('now', 'localtime') AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.ddlPassed = query.value(0).toInt();
-    else
-        snap.ddlPassed = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND times_practiced > 0 AND
+    previous_score >= passing_score AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.learned = query.first() ? query.value(0).toInt() : 0;
+    }
 
-    query.prepare("SELECT COUNT(*) FROM knowledge_units WHERE category = :category AND "
-                  "times_practiced > 0 AND is_shelved = 0");
-    query.bindValue(":category", snap.category);
-    if (query.exec() && query.first())
-        snap.cvrg = query.value(0).toDouble() / snap.total;
-    else
-        snap.cvrg = 0;
-    query.finish();
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    deadline < DATETIME('now', 'localtime') AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.ddlPassed = query.first() ? query.value(0).toInt() : 0;
+    }
 
+    {
+        auto stmt = R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    category = :category AND
+    times_practiced > 0 AND
+    is_shelved = 0
+)***";
+        auto query = execSelectQuery(stmt, catBinding);
+        snap.cvrg = query.first() ? query.value(0).toDouble() / snap.total : 0;
+    }
 
     {
         auto stmt = R"***(
@@ -437,7 +469,7 @@ DESC LIMIT 1
     }
 }
 
-void DB::updateKu(const struct KnowledgeUnit &ku)
+int DB::updateKu(const struct KnowledgeUnit &ku)
 {
     auto stmt = QString(R"**(
 UPDATE knowledge_units
@@ -469,7 +501,7 @@ WHERE id = :id
     query.bindValue(":id", ku.ID);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
     query.bindValue(":question_image", ku.QuestionImageBytes);
-    execPreparedQuery(query);
+    return execPreparedQuery(query);
 }
 
 std::vector<std::tuple<QString, QString>> DB::getSearchOptions()

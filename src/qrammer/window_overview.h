@@ -2,6 +2,7 @@
 #define WINDOW_OVERVIEW_H
 
 #include "./dto/category.h"
+#include "src/qrammer/window_manage_db.h"
 
 #include <QDir>
 #include <QList>
@@ -37,7 +38,6 @@ private slots:
     void on_lineEdit_IntervalNum_textChanged(const QString &);
     void on_lineEdit_ClientName_textChanged();
     void on_pushButton_Start_pressed();
-    void on_pushButton_Quit_pressed();
     void on_lineEdit_NewKUCoeff_textChanged(const QString &arg1);
 
     void on_pushButto_Manage_clicked();
@@ -48,11 +48,12 @@ private:
     void initUi_Overview(QSqlQuery &query);
     void initUi_Settings();
     void initUi_CrammingSchedule();
+    void initUi_PrograssBarChart();
     void swipeTriggered(QSwipeGesture *gesture);
 
 private:
     Ui::MainWindow *ui;
-    std::vector<Category> allCats;
+    WindowManageDB *winDb;
 };
 
 #endif // WINDOW_OVERVIEW_H

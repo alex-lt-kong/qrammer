@@ -24,34 +24,46 @@
     <normaloff>:/qrammer.ico</normaloff>:/qrammer.ico</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QHBoxLayout" name="horizontalLayout" stretch="84,16">
+   <layout class="QHBoxLayout" name="horizontalLayout" stretch="8,2">
     <item>
-     <widget class="QGroupBox" name="groupBox_DBContent">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>8</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="title">
-       <string>Database Content</string>
-      </property>
-      <layout class="QHBoxLayout" name="horizontalLayout_6">
-       <item>
-        <widget class="QTableView" name="tableView_KU">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_lhs" stretch="7,3">
+      <item>
+       <widget class="QGroupBox" name="groupBox_DBContent">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>8</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="title">
+         <string>Database Content</string>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QTableView" name="tableView_KU">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox_PrograssBarChart">
+        <property name="title">
+         <string>Progress Stats</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_PrograssBarChat"/>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_rhs">
       <property name="spacing">
        <number>5</number>
       </property>
@@ -330,7 +342,7 @@
          <item>
           <widget class="QPushButton" name="pushButto_Manage">
            <property name="text">
-            <string>Manage</string>
+            <string>Manage DB</string>
            </property>
           </widget>
          </item>

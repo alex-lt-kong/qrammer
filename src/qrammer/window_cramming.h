@@ -3,6 +3,7 @@
 
 #include "./dto/category.h"
 #include "./dto/knowledge_unit.h"
+#include "src/qrammer/window_manage_db.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -30,11 +31,7 @@ class CrammingWindow : public QMainWindow
 public:
     explicit CrammingWindow(QWidget *parent = nullptr);
     ~CrammingWindow();
-    void init(std::vector<Category> availableCategory,
-              uint32_t newKuCoeff,
-              int nnterval,
-              int number,
-              int windowStyle);
+    void init(uint32_t newKuCoeff, int nnterval, int number, int windowStyle);
     void initNextKU();
 
 private slots:
@@ -42,6 +39,7 @@ private slots:
     void on_pushButton_Check_clicked();
     void on_comboBox_Score_currentTextChanged(const QString &);
     void actionResetTimer_triggered_cb();
+    void actionManageDb_triggered_cb();
     void actionStartLearning_triggered_cb();
     void actionExit_triggered_cb();
     void showContextMenu_Question(const QPoint &pt);
@@ -55,7 +53,6 @@ private slots:
     void on_pushButton_Check_pressed();
     void on_pushButton_Next_pressed();
     void on_textEdit_Response_textChanged();
-    void on_pushButton_Delete_clicked();
     void on_pushButton_ChooseQuestionImage_clicked();
     void on_pushButton_ChooseAnswerImage_clicked();
 
@@ -68,10 +65,10 @@ protected:
 
 private:
     Ui::CrammingWindow *ui;
+    WindowManageDB *winDb;
     // cku: current knowledge unit
     struct KnowledgeUnit cku;
 
-    std::vector<Category> availableCategory;
     QHash<QString, QString> SearchOptions;
 
     QMenu *menuQuestion;
@@ -116,8 +113,6 @@ private:
     void onKuLoadCallback();
     void preKuLoadGuiUpdate();
     void postKuLoadGuiUpdate();
-    void saveWindowLayout();
-    void restoreWindowLayout();
     void updateCkuByGuiElements();
 
     size_t currCatIndex;

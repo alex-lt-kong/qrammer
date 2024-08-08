@@ -300,6 +300,9 @@
           <height>16777215</height>
          </size>
         </property>
+        <property name="toolTip">
+         <string>Ctrl+Enter</string>
+        </property>
         <property name="text">
          <string>Check</string>
         </property>
@@ -318,6 +321,10 @@
           <width>16777215</width>
           <height>16777215</height>
          </size>
+        </property>
+        <property name="toolTip">
+         <string>Ctrl+PageDown
+Ctrl+Down</string>
         </property>
         <property name="text">
          <string>Next</string>

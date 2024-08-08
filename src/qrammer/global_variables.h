@@ -12,5 +12,7 @@
 
 extern QSettings settings;
 extern DB db;
+extern std::vector<Category> availableCategory;
+extern size_t progressLookBackDays;
 
 #endif // GLOBAL_VARIABLES_H
