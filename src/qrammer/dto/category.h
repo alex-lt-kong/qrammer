@@ -3,7 +3,10 @@
 
 #include "src/qrammer/snapshot.h"
 
-#include <QBarSet>
+#define PROGRESS_LOOKBACK_PERIODS 16
+#define PROGRESS_LOOKBACK_DAYS_PER_PERIOD 7
+
+namespace Qrammer::Dto {
 
 struct Category
 {
@@ -12,7 +15,9 @@ struct Category
     size_t totalKuCount;
     size_t dueKuCount;
     Snapshot snapshot;
-    std::unique_ptr<QBarSet> set;
+    int histogram[PROGRESS_LOOKBACK_PERIODS];
 };
+
+} // namespace Qrammer::Dto
 
 #endif // CATEGORY_H

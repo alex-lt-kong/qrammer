@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>CrammingWindow</class>
- <widget class="QMainWindow" name="CrammingWindow">
+ <class>Qrammer::Window::Cramming</class>
+ <widget class="QMainWindow" name="Qrammer::Window::Cramming">
   <property name="geometry">
    <rect>
     <x>0</x>

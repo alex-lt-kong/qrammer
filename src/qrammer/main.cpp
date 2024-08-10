@@ -9,6 +9,8 @@
 
 #include <filesystem>
 
+using namespace Qrammer;
+
 int main(int argc, char *argv[])
 {
     init_logger();
@@ -28,7 +30,7 @@ int main(int argc, char *argv[])
     spdlog::default_logger()->flush();
     db = DB(dbPath);
 
-    MainWindow w;
+    Qrammer::Window::Overview w;
     int retval = -1;
     if (w.init()) {
         w.showMaximized();

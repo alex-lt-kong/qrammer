@@ -6,9 +6,11 @@
 #include <QFileDialog>
 #include <spdlog/spdlog.h>
 
-WindowManageDB::WindowManageDB(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::WindowManageDB)
+using namespace Qrammer::Window;
+
+ManageDB::ManageDB(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::ManageDB)
 {
     ui->setupUi(this);
 
@@ -31,12 +33,12 @@ WindowManageDB::WindowManageDB(QWidget *parent) :
                           ui->comboBox_Maintype_Search->currentText());
 }
 
-WindowManageDB::~WindowManageDB()
+ManageDB::~ManageDB()
 {
     delete ui;
 }
 
-void WindowManageDB::initCategory()
+void ManageDB::initCategory()
 {
     ui->comboBox_Maintype_Search->clear();
     QStringList t;
@@ -54,7 +56,7 @@ void WindowManageDB::initCategory()
     ui->comboBox_Maintype_Meta->addItems(t);
 }
 
-void WindowManageDB::conductDatabaseSearch(QString field, QString keyword, QString category)
+void ManageDB::conductDatabaseSearch(QString field, QString keyword, QString category)
 {
     SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
@@ -79,10 +81,10 @@ LIMIT 50)***")
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
     }
-    searchResults = new QMap<QString, int>;
+    searchResults = QMap<QString, int>();
 
     while (query.next()) {
-        searchResults->insert(query.value(1).toString(), query.value(0).toInt());
+        searchResults.insert(query.value(1).toString(), query.value(0).toInt());
         ui->listWidget_SearchResults->addItem(query.value(1).toString());
     }
 
@@ -93,7 +95,7 @@ LIMIT 50)***")
     SPDLOG_INFO("Found {} matches", ui->listWidget_SearchResults->count());
 }
 
-void WindowManageDB::showSingleKU(int kuID)
+void ManageDB::showSingleKU(int kuID)
 {
     currKUID = kuID;
     try {
@@ -183,7 +185,7 @@ void WindowManageDB::showSingleKU(int kuID)
     ui->pushButton_Delete->setEnabled(true);
 }
 
-bool WindowManageDB::inputValidityCheck()
+bool ManageDB::inputValidityCheck()
 {
     if (ui->comboBox_Maintype_Meta->currentText().size() <= 0) {
         QMessageBox::information(this, "Information missing", "Field [Category] must be filled");
@@ -213,7 +215,7 @@ bool WindowManageDB::inputValidityCheck()
     return true;
 }
 
-void WindowManageDB::on_comboBox_Field_currentTextChanged(const QString &)
+void ManageDB::on_comboBox_Field_currentTextChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
@@ -221,24 +223,24 @@ void WindowManageDB::on_comboBox_Field_currentTextChanged(const QString &)
     setWindowTitle("Qrammer - DB Utility [" + ui->comboBox_Field->currentText() + "]");
 }
 
-void WindowManageDB::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
+void ManageDB::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
 {
     ui->comboBox_Maintype_Meta->setCurrentText(ui->comboBox_Maintype_Search->currentText());
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void WindowManageDB::on_listWidget_SearchResults_currentTextChanged(const QString &currentText)
+void ManageDB::on_listWidget_SearchResults_currentTextChanged(const QString &currentText)
 {
-    showSingleKU(searchResults->value(currentText, -1));
+    showSingleKU(searchResults.value(currentText, -1));
 }
 
-void WindowManageDB::on_pushButton_NewKU_clicked()
+void ManageDB::on_pushButton_NewKU_clicked()
 {
     showSingleKU(-1);
 }
 
-void WindowManageDB::on_lineEdit_Keyword_textChanged(const QString &)
+void ManageDB::on_lineEdit_Keyword_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text()
@@ -246,7 +248,7 @@ void WindowManageDB::on_lineEdit_Keyword_textChanged(const QString &)
                           + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void WindowManageDB::on_pushButton_WriteDB_clicked()
+void ManageDB::on_pushButton_WriteDB_clicked()
 {
     if (!inputValidityCheck())
         return;
@@ -372,30 +374,30 @@ WHERE id = :id)***";
     // db.close();
 }
 
-void WindowManageDB::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
+void ManageDB::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void WindowManageDB::on_lineEdit_Keyword_Prefix_textChanged(const QString &)
+void ManageDB::on_lineEdit_Keyword_Prefix_textChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()  + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
 
-void WindowManageDB::keyPressEvent(QKeyEvent *event)
+void ManageDB::keyPressEvent(QKeyEvent *event)
 {
     if (event->modifiers()&Qt::ControlModifier && (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return))
         on_pushButton_WriteDB_clicked();
 }
 
-void WindowManageDB::on_listWidget_SearchResults_doubleClicked(const QModelIndex &)
+void ManageDB::on_listWidget_SearchResults_doubleClicked(const QModelIndex &)
 {
-    showSingleKU(searchResults->value(ui->listWidget_SearchResults->currentItem()->text(), -1));
+    showSingleKU(searchResults.value(ui->listWidget_SearchResults->currentItem()->text(), -1));
 }
 
-void WindowManageDB::on_pushButton_Delete_clicked()
+void ManageDB::on_pushButton_Delete_clicked()
 {
     if (QMessageBox::question(this,
                               "Qrammer",
@@ -419,12 +421,13 @@ void WindowManageDB::on_pushButton_Delete_clicked()
     on_lineEdit_Keyword_textChanged(nullptr);
 }
 
-void WindowManageDB::on_pushButton_ChooseImage_clicked()
+void ManageDB::on_pushButton_ChooseImage_clicked()
 {
     ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
 }
 
-void WindowManageDB::on_pushButton_ChooseQuestionImage_clicked()
+void ManageDB::on_pushButton_ChooseQuestionImage_clicked()
 {
+    qDebug("WindowManageDB::on_pushButton_ChooseQuestionImage_clicked()");
     ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
 }

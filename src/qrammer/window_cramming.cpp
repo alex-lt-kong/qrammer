@@ -4,7 +4,6 @@
 #include "src/qrammer/global_variables.h"
 #include "src/qrammer/ui_window_cramming.h"
 #include "src/qrammer/window_manage_db.h"
-// #include "ui_window_cramming.h"
 #include "utils.h"
 
 #include <QAudioOutput>
@@ -12,10 +11,12 @@
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
 
-CrammingWindow::CrammingWindow(QWidget *parent)
+using namespace Qrammer::Window;
+
+Cramming::Cramming(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::CrammingWindow)
-    , winDb(new WindowManageDB(this))
+    , ui(new Ui::Cramming)
+    , winDb(Qrammer::Window::ManageDB())
 {
     ui->setupUi(this);
 
@@ -35,12 +36,12 @@ CrammingWindow::CrammingWindow(QWidget *parent)
     cku.PreviousScore = 0;
 }
 
-CrammingWindow::~CrammingWindow()
+Cramming::~Cramming()
 {
     delete ui;
 }
 
-void CrammingWindow::closeEvent(QCloseEvent *event)
+void Cramming::closeEvent(QCloseEvent *event)
 {
     if (remainingKUsToCram == 0) {
         actionExit_triggered_cb();
@@ -60,7 +61,7 @@ void CrammingWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-void CrammingWindow::initUI()
+void Cramming::initUI()
 {
     ui->lineEdit_PassingScore->setValidator( new QIntValidator(0, 99, this));
 
@@ -76,13 +77,13 @@ void CrammingWindow::initUI()
     adaptTexteditHeight(ui->textEdit_Info);
 }
 
-void CrammingWindow::initPlatformSpecificSettings()
+void Cramming::initPlatformSpecificSettings()
 {
     QString styleSheet = QString("font-size:%1pt;").arg(settings.value("FontSize", 10).toInt());
     this->setStyleSheet(styleSheet);
 }
 
-void CrammingWindow::init(uint32_t newKuCoeff, int interval, int number, int windowStyle)
+void Cramming::init(uint32_t newKuCoeff, int interval, int number, int windowStyle)
 {
     this->newKuCoeff = newKuCoeff;
     this->interval = interval;
@@ -98,7 +99,7 @@ void CrammingWindow::init(uint32_t newKuCoeff, int interval, int number, int win
     fillinThenExecuteCommand("Init");
 }
 
-void CrammingWindow::on_pushButton_Next_clicked()
+void Cramming::on_pushButton_Next_clicked()
 {
     if (!ui->pushButton_Next->isEnabled())
         return;
@@ -121,14 +122,14 @@ void CrammingWindow::on_pushButton_Next_clicked()
     }
 }
 
-void CrammingWindow::startInterval()
+void Cramming::startInterval()
 {
     secDelayed = 0;
     hide();
     timerDelay->start(1000);
 }
 
-void CrammingWindow::tmrInterval()
+void Cramming::tmrInterval()
 {
     secDelayed++;
     auto toolTip = QString("Qrammer\nProgress: %1/%2\nWait: %3 sec")
@@ -156,12 +157,12 @@ void CrammingWindow::tmrInterval()
     }
 }
 
-void CrammingWindow::onAnswerShownCallback()
+void Cramming::onAnswerShownCallback()
 {
     fillinThenExecuteCommand("OnAnswerShown");
 }
 
-void CrammingWindow::on_pushButton_Check_clicked()
+void Cramming::on_pushButton_Check_clicked()
 {
     if (!ui->pushButton_Check->isEnabled())
         return;
@@ -181,7 +182,7 @@ void CrammingWindow::on_pushButton_Check_clicked()
     onAnswerShownCallback();
 }
 
-void CrammingWindow::updateCkuByGuiElements()
+void Cramming::updateCkuByGuiElements()
 {
     cku.ClientName = clientName;
     cku.Question = ui->textEdit_Question->toPlainText();
@@ -221,7 +222,7 @@ void CrammingWindow::updateCkuByGuiElements()
     }
 }
 
-bool CrammingWindow::finalizeKuJustBeingCrammed()
+bool Cramming::finalizeKuJustBeingCrammed()
 {
     assert(availableCategory[currCatIndex].KuToCramCount > 0);
 
@@ -259,7 +260,7 @@ bool CrammingWindow::finalizeKuJustBeingCrammed()
     return false;
 }
 
-void CrammingWindow::preKuLoadGuiUpdate()
+void Cramming::preKuLoadGuiUpdate()
 {
     this->setUpdatesEnabled(false);
 
@@ -280,7 +281,7 @@ void CrammingWindow::preKuLoadGuiUpdate()
     ui->pushButton_Next->setEnabled(false);
 }
 
-void CrammingWindow::postKuLoadGuiUpdate()
+void Cramming::postKuLoadGuiUpdate()
 {
     ui->textEdit_Question->setPlainText(cku.Question);
     adaptTexteditLineSpacing(ui->textEdit_Question);
@@ -408,7 +409,7 @@ void CrammingWindow::postKuLoadGuiUpdate()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
 }
 
-void CrammingWindow::fillinThenExecuteCommand(QString callbackName)
+void Cramming::fillinThenExecuteCommand(QString callbackName)
 {
     QString cmdTemplate = settings.value(QString("Callbacks/%1").arg(callbackName), "").toString();
     if (cmdTemplate.length() > 0) {
@@ -429,12 +430,12 @@ void CrammingWindow::fillinThenExecuteCommand(QString callbackName)
     }
 }
 
-void CrammingWindow::onKuLoadCallback()
+void Cramming::onKuLoadCallback()
 {
     fillinThenExecuteCommand("OnKULoad");
 }
 
-void CrammingWindow::initNextKU()
+void Cramming::initNextKU()
 {
     preKuLoadGuiUpdate();
     loadNextKu(0);
@@ -444,7 +445,7 @@ void CrammingWindow::initNextKU()
     spdlog::default_logger()->flush();
 }
 
-size_t CrammingWindow::pickCategoryforNewKU()
+size_t Cramming::pickCategoryforNewKU()
 {
     size_t r = ranGen.generate() % remainingKUsToCram;
     size_t s = 0;
@@ -459,7 +460,7 @@ size_t CrammingWindow::pickCategoryforNewKU()
     throw std::runtime_error("pickCategoryforNewKU() failed");
 }
 
-void CrammingWindow::loadNextKu(int recursion_depth)
+void Cramming::loadNextKu(int recursion_depth)
 {
     auto max_retry = 100;
     SPDLOG_INFO("Loading next knowledge unit (recursion_depth: {}, max_depth: {}) ",
@@ -556,7 +557,7 @@ void CrammingWindow::loadNextKu(int recursion_depth)
     spdlog::default_logger()->flush();
 }
 
-void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
+void Cramming::on_comboBox_Score_currentTextChanged(const QString &)
 {
 
     ui->pushButton_Next->setEnabled(true);
@@ -575,7 +576,7 @@ void CrammingWindow::on_comboBox_Score_currentTextChanged(const QString &)
     }
 }
 
-double CrammingWindow::calculateNewPreviousScore(double newScore)
+double Cramming::calculateNewPreviousScore(double newScore)
 {
     double timesPracticed = cku.TimesPracticed <= 9 ? cku.TimesPracticed : 9;
     double previousScore = cku.PreviousScore;
@@ -585,7 +586,7 @@ double CrammingWindow::calculateNewPreviousScore(double newScore)
     return previousScore;
 }
 
-void CrammingWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
+void Cramming::adaptTexteditLineSpacing(QTextEdit *textedit)
 {
     if (textedit == nullptr) return;
 
@@ -613,7 +614,7 @@ void CrammingWindow::adaptTexteditLineSpacing(QTextEdit *textedit)
     textedit -> ensureCursorVisible();
 }
 
-void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
+void Cramming::adaptTexteditHeight(QTextEdit *textedit)
 {
     if (!textedit) return;
 
@@ -632,7 +633,7 @@ void CrammingWindow::adaptTexteditHeight(QTextEdit *textedit)
     ui->progressBar_Learning->setFixedHeight(ui->textEdit_Info->height());
 }
 
-void CrammingWindow::finalizeCrammingSession()
+void Cramming::finalizeCrammingSession()
 {
     QString snapDiffStr;
     for (size_t i = 0; i < availableCategory.size(); i++) {
@@ -660,25 +661,25 @@ void CrammingWindow::finalizeCrammingSession()
     QApplication::quit();
 }
 
-void CrammingWindow::initContextMenu()
+void Cramming::initContextMenu()
 {    
     menuQuestion = new QMenu(this);
     menuAnswer = new QMenu(this);
     menuBlank = new QMenu(this);
 
-    QAction* copy = new QAction();
+    QAction *copy = new QAction(this);
     copy->setText("Copy");
     menuQuestion->addAction(copy);
     menuAnswer->addAction(copy);
     menuBlank->addAction(copy);
 
-    QAction* paste = new QAction();
+    QAction *paste = new QAction(this);
     paste->setText("Paste Plaintext");
     menuQuestion->addAction(paste);
     menuAnswer->addAction(paste);
     menuBlank->addAction(paste);
 
-    QAction* skip = new QAction();
+    QAction *skip = new QAction(this);
     skip->setText("Skip this KU");
     menuQuestion->addAction(skip);
     menuAnswer->addAction(skip);
@@ -726,7 +727,7 @@ void CrammingWindow::initContextMenu()
             SLOT(showContextMenu_Blank(QPoint)));
 }
 
-void CrammingWindow::initTrayMenu()
+void Cramming::initTrayMenu()
 {
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(":/qrammer.ico"));
@@ -756,36 +757,36 @@ void CrammingWindow::initTrayMenu()
     trayIcon->setContextMenu(menuTray);
 }
 
-void CrammingWindow::actionManageDb_triggered_cb()
+void Cramming::actionManageDb_triggered_cb()
 {
-    winDb->show();
+    winDb.show();
 }
 
-void CrammingWindow::actionStartLearning_triggered_cb()
+void Cramming::actionStartLearning_triggered_cb()
 {
     secDelayed = interval * 60 - 5;
 }
 
-void CrammingWindow::showContextMenu_Question(const QPoint &pt)
+void Cramming::showContextMenu_Question(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Question, menuQuestion, pt);
 }
-void CrammingWindow::actionResetTimer_triggered_cb()
+void Cramming::actionResetTimer_triggered_cb()
 {
     secDelayed = 0;
 }
 
-void CrammingWindow::showContextMenu_Answer(const QPoint &pt)
+void Cramming::showContextMenu_Answer(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Answer, menuAnswer, pt);
 }
 
-void CrammingWindow::showContextMenu_Blank(const QPoint &pt)
+void Cramming::showContextMenu_Blank(const QPoint &pt)
 {
     showContextMenu_Common(ui->textEdit_Response, menuBlank, pt);
 }
 
-void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const QPoint &pt)
+void Cramming::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const QPoint &pt)
 {
     QPoint globalPos = edit->mapToGlobal(pt);
 
@@ -810,7 +811,7 @@ void CrammingWindow::showContextMenu_Common(QTextEdit *edit, QMenu *menu, const 
     }
 }
 
-void CrammingWindow::setWindowStyle()
+void Cramming::setWindowStyle()
 {
     if (!isVisible()) // This condition is needed since this function can accidentally show the window when it should be hidden.
         return;
@@ -848,7 +849,7 @@ void CrammingWindow::setWindowStyle()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 100);        // To make sure the resize is implemented before next step.
 }
 
-QString CrammingWindow::convertStringToFilename(QString name)
+QString Cramming::convertStringToFilename(QString name)
 {
     QString output;
     for (const auto c : name) {
@@ -860,7 +861,7 @@ QString CrammingWindow::convertStringToFilename(QString name)
     return output;
 }
 
-void CrammingWindow::actionExit_triggered_cb()
+void Cramming::actionExit_triggered_cb()
 {
     finalizeCrammingSession();
     // This line alone won't work since finishLearning() would  quit the program before this line is executed
@@ -869,7 +870,7 @@ void CrammingWindow::actionExit_triggered_cb()
     QApplication::quit();
 }
 
-void CrammingWindow::resizeEvent(QResizeEvent *event)
+void Cramming::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
     adaptTexteditHeight(ui->textEdit_Question);
@@ -877,7 +878,7 @@ void CrammingWindow::resizeEvent(QResizeEvent *event)
     adaptTexteditHeight(ui->textEdit_Info);
 }
 
-void CrammingWindow::keyPressEvent(QKeyEvent *event)
+void Cramming::keyPressEvent(QKeyEvent *event)
 {
     auto em = event->modifiers();
     auto ek = event->key();
@@ -915,40 +916,40 @@ void CrammingWindow::keyPressEvent(QKeyEvent *event)
     QMainWindow::keyPressEvent(event);
 }
 
-void CrammingWindow::on_pushButton_Skip_clicked()
+void Cramming::on_pushButton_Skip_clicked()
 {
     initNextKU();
 }
 
-void CrammingWindow::on_textEdit_Question_textChanged()
+void Cramming::on_textEdit_Question_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Question);
     setWindowStyle();
 }
 
-void CrammingWindow::on_textEdit_Info_textChanged()
+void Cramming::on_textEdit_Info_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Info);
     setWindowStyle();
 }
 
-void CrammingWindow::on_pushButton_Skip_pressed()
+void Cramming::on_pushButton_Skip_pressed()
 {
-    CrammingWindow::on_pushButton_Skip_clicked();
+    Cramming::on_pushButton_Skip_clicked();
 }
 
-void CrammingWindow::on_pushButton_Check_pressed()
+void Cramming::on_pushButton_Check_pressed()
 {
-    CrammingWindow::on_pushButton_Check_clicked();
+    Cramming::on_pushButton_Check_clicked();
 }
 
-void CrammingWindow::on_pushButton_Next_pressed()
+void Cramming::on_pushButton_Next_pressed()
 {
-    CrammingWindow::on_pushButton_Next_clicked();
+    Cramming::on_pushButton_Next_clicked();
 }
 
 // Return value: If user would like to retry the same database operation
-bool CrammingWindow::promptUserToRetryDBError(QString operationName, QString errMsg)
+bool Cramming::promptUserToRetryDBError(QString operationName, QString errMsg)
 {
     auto msg = QString(R"*(Operation: %1
 Database path: %2
@@ -969,23 +970,24 @@ Error message: %3)*")
     }
 }
 
-void CrammingWindow::on_textEdit_Response_textChanged()
+void Cramming::on_textEdit_Response_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Response);
     setWindowStyle();
 }
 
-void CrammingWindow::on_pushButton_ChooseQuestionImage_clicked()
+void Cramming::on_pushButton_ChooseQuestionImage_clicked()
 {
+    qDebug("Cramming::on_pushButton_ChooseQuestionImage_clicked()");
     ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
 }
 
-void CrammingWindow::on_pushButton_ChooseAnswerImage_clicked()
+void Cramming::on_pushButton_ChooseAnswerImage_clicked()
 {
     ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
 }
 
-void CrammingWindow::on_pushButton_ManageDB_clicked()
+void Cramming::on_pushButton_ManageDB_clicked()
 {
-    winDb->show();
+    winDb.show();
 }

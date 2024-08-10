@@ -8,6 +8,7 @@
 #include <spdlog/spdlog.h>
 
 using namespace std;
+using namespace Qrammer;
 
 DB::DB() {}
 
@@ -60,7 +61,7 @@ WHERE
     return dueNumByCat;
 }
 
-void DB::updateTotalKuCount(Category &category)
+void DB::updateTotalKuCount(Qrammer::Dto::Category &category)
 {
     int totalKUCount = -1;
     auto stmt = R"***(
@@ -86,7 +87,7 @@ std::string DB::getDatabasePath()
     return databaseName;
 }
 
-struct KnowledgeUnit DB::getUrgentKu(const QString &category)
+struct Dto::KnowledgeUnit DB::getUrgentKu(const QString &category)
 {
     auto stmt = QString(R"***(
 SELECT %1
@@ -113,7 +114,7 @@ LIMIT 1
     }
 }
 
-struct KnowledgeUnit DB::getNewKu(const QString &category)
+Dto::KnowledgeUnit DB::getNewKu(const QString &category)
 {
     auto stmt = QString(R"***(
 SELECT %1
@@ -142,7 +143,7 @@ LIMIT 1
     }
 }
 
-struct KnowledgeUnit DB::selectKuById(const int kuid)
+struct Dto::KnowledgeUnit DB::selectKuById(const int kuid)
 {
     auto stmt = QString(R"***(
 SELECT %1
@@ -159,7 +160,7 @@ WHERE id = :id
     }
 }
 
-struct KnowledgeUnit DB::getRandomOldKu(const Category &cat)
+struct Dto::KnowledgeUnit DB::getRandomOldKu(const Qrammer::Dto::Category &cat)
 {
     auto stmt = QString(R"***(
 SELECT *
@@ -227,10 +228,10 @@ int DB::execPreparedQuery(QSqlQuery &query)
     return query.numRowsAffected();
 }
 
-struct KnowledgeUnit DB::fillinKu(QSqlQuery &query)
+struct Dto::KnowledgeUnit DB::fillinKu(QSqlQuery &query)
 {
     int idx = 0;
-    struct KnowledgeUnit ku;
+    struct Dto::KnowledgeUnit ku;
     ku.ID = query.value(idx++).toInt();
     ku.Question = query.value(idx++).toString();
     ku.Answer = query.value(idx++).toString();
@@ -280,7 +281,7 @@ ORDER BY last_practice_time DESC
     return execSelectQuery(stmt);
 }
 
-std::vector<Category> DB::getAllCategories()
+std::vector<Qrammer::Dto::Category> DB::getAllCategories()
 {
     auto stmt = R"(
 SELECT DISTINCT(category)
@@ -289,27 +290,28 @@ WHERE is_shelved = 0
 ORDER BY category DESC
 )";
     auto query = execSelectQuery(stmt);
-    auto allCats = std::vector<Category>();
+    auto allCats = std::vector<Qrammer::Dto::Category>();
 
     while (query.next()) {
-        struct Category t;
+        Qrammer::Dto::Category t;
         t.name = query.value(0).toString();
         t.KuToCramCount = 0;
         t.snapshot = Snapshot(t.name);
         updateSnapshot(t.snapshot);
-        t.set = std::make_unique<QBarSet>(t.name);
         auto catBinding = std::vector<std::pair<QString, QVariant>>{{":category", t.name}};
-        for (size_t i = progressLookBackDays; i > 0; --i) {
+        for (int i = 1; i <= PROGRESS_LOOKBACK_PERIODS; ++i) {
             auto stmt = QString(R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
-    DATE(first_practice_time) = DATE('now', '-%1 day') AND
+    DATE(first_practice_time) >= DATE('now', '%1 day') AND
+    DATE(first_practice_time) < DATE('now', '%2 day') AND
     category = :category
 )***")
-                            .arg(i);
+                            .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
+                            .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
             auto q = db.execSelectQuery(stmt, catBinding);
-            t.set->append(q.first() ? q.value(0).toInt() : -1);
+            t.histogram[i - 1] = q.first() ? q.value(0).toInt() : -1;
         }
         allCats.emplace_back(std::move(t));
     }
@@ -469,7 +471,7 @@ DESC LIMIT 1
     }
 }
 
-int DB::updateKu(const struct KnowledgeUnit &ku)
+int DB::updateKu(const struct Dto::KnowledgeUnit &ku)
 {
     auto stmt = QString(R"**(
 UPDATE knowledge_units
@@ -519,7 +521,7 @@ ORDER BY id ASC
     return options;
 }
 
-void DB::deleteKu(const struct KnowledgeUnit &ku)
+void DB::deleteKu(const struct Dto::KnowledgeUnit &ku)
 {
     deleteKu(ku.ID);
 }

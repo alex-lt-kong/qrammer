@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef WINDOW_MANAGE_DB_H
+#define WINDOW_MANAGE_DB_H
 
 #include "./dto/knowledge_unit.h"
 
@@ -11,17 +11,18 @@
 #include <QDir>
 #include <QFont>
 
+namespace Qrammer::Window {
 namespace Ui {
-class WindowManageDB;
+class ManageDB;
 }
 
-class WindowManageDB : public QMainWindow
+class ManageDB : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit WindowManageDB(QWidget *parent = nullptr);
-    ~WindowManageDB();
+    explicit ManageDB(QWidget *parent = nullptr);
+    ~ManageDB();
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -46,12 +47,12 @@ private:
     void showSingleKU(int kuID);
     bool inputValidityCheck();
 
-    Ui::WindowManageDB *ui;
+    Ui::ManageDB *ui;
 
-    QMap<QString, int> *searchResults;
+    QMap<QString, int> searchResults;
 
     int currKUID;
-    struct KnowledgeUnit cku;
+    struct Dto::KnowledgeUnit cku;
 };
-
-#endif // MAINWINDOW_H
+} // namespace Qrammer::Window
+#endif // WINDOW_MANAGE_DB_H

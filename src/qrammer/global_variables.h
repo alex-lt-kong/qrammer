@@ -11,8 +11,7 @@
 #define APPLICATION_NAME "qrammer"
 
 extern QSettings settings;
-extern DB db;
-extern std::vector<Category> availableCategory;
-extern size_t progressLookBackDays;
+extern Qrammer::DB db;
+extern std::vector<Qrammer::Dto::Category> availableCategory;
 
 #endif // GLOBAL_VARIABLES_H

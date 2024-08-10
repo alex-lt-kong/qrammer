@@ -1,7 +1,6 @@
 #ifndef WINDOW_CRAMMING_H
 #define WINDOW_CRAMMING_H
 
-#include "./dto/category.h"
 #include "./dto/knowledge_unit.h"
 #include "src/qrammer/window_manage_db.h"
 
@@ -20,17 +19,18 @@
 #include <QtSql>
 #include <QtWidgets>
 
+namespace Qrammer::Window {
 namespace Ui {
-class CrammingWindow;
+class Cramming;
 }
 
-class CrammingWindow : public QMainWindow
+class Cramming : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit CrammingWindow(QWidget *parent = nullptr);
-    ~CrammingWindow();
+    explicit Cramming(QWidget *parent = nullptr);
+    ~Cramming();
     void init(uint32_t newKuCoeff, int nnterval, int number, int windowStyle);
     void initNextKU();
 
@@ -55,7 +55,6 @@ private slots:
     void on_textEdit_Response_textChanged();
     void on_pushButton_ChooseQuestionImage_clicked();
     void on_pushButton_ChooseAnswerImage_clicked();
-
     void on_pushButton_ManageDB_clicked();
 
 protected:
@@ -64,10 +63,10 @@ protected:
     void closeEvent (QCloseEvent *event) override;
 
 private:
-    Ui::CrammingWindow *ui;
-    WindowManageDB *winDb;
+    Ui::Cramming *ui;
+    Qrammer::Window::ManageDB winDb;
     // cku: current knowledge unit
-    struct KnowledgeUnit cku;
+    struct Dto::KnowledgeUnit cku;
 
     QHash<QString, QString> SearchOptions;
 
@@ -127,5 +126,5 @@ private:
     QString clientName;
 };
 
-
+} // namespace Qrammer::Window
 #endif // WINDOW_CRAMMING_H

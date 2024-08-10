@@ -1,4 +1,5 @@
 #include "window_overview.h"
+#include "./dto/category.h"
 #include "db.h"
 #include "global_variables.h"
 #include "src/qrammer/ui_window_overview.h"
@@ -7,6 +8,7 @@
 
 #include <QBarCategoryAxis>
 #include <QBarSeries>
+#include <QBarSet>
 #include <QChart>
 #include <QChartView>
 #include <QDir>
@@ -14,20 +16,24 @@
 #include <QValueAxis>
 #include <spdlog/spdlog.h>
 
-MainWindow::MainWindow(QWidget *parent)
+using namespace Qrammer;
+using namespace Qrammer::Window;
+
+Overview::Overview(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-    , winDb(new WindowManageDB(this))
+    , ui(new Ui::Overview)
+    , winDb(Qrammer::Window::ManageDB())
+    , winCg(Qrammer::Window::Cramming())
 {
     ui->setupUi(this);
 }
 
-MainWindow::~MainWindow()
+Overview::~Overview()
 {
     delete ui;
 }
 
-bool MainWindow::init()
+bool Overview::init()
 {
     QSqlQuery q;
     try {
@@ -43,7 +49,7 @@ bool MainWindow::init()
     return true;
 }
 
-void MainWindow::keyPressEvent(QKeyEvent *event)
+void Overview::keyPressEvent(QKeyEvent *event)
 {
     // TODO: for some reasons this does not work yet...
     if (event->modifiers() & Qt::ControlModifier
@@ -51,7 +57,7 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
         on_pushButton_Start_clicked();
 }
 
-void MainWindow::closeEvent (QCloseEvent *event)
+void Overview::closeEvent(QCloseEvent *event)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this,
                                                                "Qrammer",
@@ -66,7 +72,7 @@ void MainWindow::closeEvent (QCloseEvent *event)
     }
 }
 
-void MainWindow::initUi_Overview(QSqlQuery &query)
+void Overview::initUi_Overview(QSqlQuery &query)
 {
     QSqlQueryModel *model = new QSqlQueryModel(this);
     model->setQuery(std::move(query));
@@ -88,20 +94,30 @@ void MainWindow::initUi_Overview(QSqlQuery &query)
     ui->tableView_KU->grabGesture(Qt::SwipeGesture);
 }
 
-void MainWindow::initUi_PrograssBarChart()
+void Overview::initUi_PrograssBarChart()
 {
-    // TODO: does it leak memory?
+    int minVal = INT_MAX;
+    int maxVal = INT_MIN;
     QBarSeries *series = new QBarSeries(this);
     for (auto const &cat : availableCategory) {
-        series->append(cat.set.get());
+        auto *set = new QBarSet(cat.name);
+        for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
+            set->append(cat.histogram[i]);
+            minVal = minVal > cat.histogram[i] ? cat.histogram[i] : minVal;
+            maxVal = maxVal < cat.histogram[i] ? cat.histogram[i] : maxVal;
+        }
+        // QBarSeries::append() takes ownership
+        // https://doc.qt.io/qt-6/qabstractbarseries.html#append
+        series->append(set);
     }
+    // will be owned by QChartView later
     auto chart = new QChart();
     chart->addSeries(series);
     // chart->setTitle("Simple Bar Chart");
     chart->setAnimationOptions(QChart::SeriesAnimations);
     QStringList dates;
-    for (int i = progressLookBackDays; i > 0; --i) {
-        dates.append(QString::number(i * -1));
+    for (int i = PROGRESS_LOOKBACK_PERIODS; i > 0; --i) {
+        dates.append(QString("-w%1").arg(i));
     }
     auto axisX = new QBarCategoryAxis;
     axisX->append(dates);
@@ -109,16 +125,18 @@ void MainWindow::initUi_PrograssBarChart()
     series->attachAxis(axisX);
 
     auto axisY = new QValueAxis;
-    axisY->setRange(0, 15);
+    axisY->setRange(minVal == 0 ? 0 : minVal - 1, maxVal + 1);
     chart->addAxis(axisY, Qt::AlignRight);
     series->attachAxis(axisY);
+    // QChartView take the ownership of chart
+    // https://doc.qt.io/qt-5/qchartview.html#QChartView-1
     auto cv = new QChartView(chart, this);
     cv->setRenderHint(QPainter::Antialiasing);
 
     ui->gridLayout_PrograssBarChat->addWidget(cv);
 }
 
-void MainWindow::initUi_CrammingSchedule()
+void Overview::initUi_CrammingSchedule()
 {
     for (size_t i = 0; i < availableCategory.size(); i++) {
         ui->lineEdit_KusToCramByCategory->setPlaceholderText(
@@ -129,7 +147,7 @@ void MainWindow::initUi_CrammingSchedule()
     ui->lineEdit_KusToCramByCategory->setFocus();
 }
 
-void MainWindow::initUi_Stats()
+void Overview::initUi_Stats()
 {
     for (size_t i = 0; i < availableCategory.size(); i++) {
         ui->plainTextEdit_Statistics->appendPlainText(
@@ -140,7 +158,7 @@ void MainWindow::initUi_Stats()
     ui->plainTextEdit_Statistics->setFont(font);
 }
 
-void MainWindow::initUi(QSqlQuery &query)
+void Overview::initUi(QSqlQuery &query)
 {
     setWindowIcon(QIcon(":/qrammer.ico"));
     setWindowTitle(QString("%1 (git commit: %2)").arg(windowTitle(), GIT_COMMIT_HASH));
@@ -151,7 +169,7 @@ void MainWindow::initUi(QSqlQuery &query)
     initUi_CrammingSchedule();
 }
 
-void MainWindow::initUi_Settings()
+void Overview::initUi_Settings()
 {
     ui->lineEdit_FontSize->setValidator(new QIntValidator(0, 50, this));
     ui->lineEdit_NewKUCoeff->setValidator(new QIntValidator(0, 99, this));
@@ -162,7 +180,7 @@ void MainWindow::initUi_Settings()
     ui->lineEdit_WindowStyle->setText(settings.value("WindowStyle", "1111").toString());
 }
 
-void MainWindow::on_pushButton_Start_clicked()
+void Overview::on_pushButton_Start_clicked()
 {
     SPDLOG_INFO("Cramming session about to start");
     ui->pushButton_Start->setEnabled(false); // To avoid this event from being triggered twice (which would initiate two practice windows)
@@ -181,8 +199,6 @@ void MainWindow::on_pushButton_Start_clicked()
         return;
     }
 
-    CrammingWindow *cW = new CrammingWindow(nullptr);
-
     QList<QString> tt = ui->lineEdit_IntervalNum->text().split(rx);
     int t1 = 0, t2 = 0;
     if (tt.count() == 2) {
@@ -191,16 +207,16 @@ void MainWindow::on_pushButton_Start_clicked()
     }
 
     ui->pushButton_Start->setEnabled(false);
-    cW->init(settings.value("NewKUCoeff", 50).toUInt(),
-             t1,
-             t2,
-             settings.value("WindowStyle", "1111").toInt());
-    cW->show();
-    cW->initNextKU();
+    winCg.init(settings.value("NewKUCoeff", 50).toUInt(),
+               t1,
+               t2,
+               settings.value("WindowStyle", "1111").toInt());
+    winCg.show();
+    winCg.initNextKU();
     this->hide();
 }
 
-void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
+void Overview::on_lineEdit_WindowStyle_textChanged(const QString &)
 {
     if (ui->lineEdit_WindowStyle->text() == "1100" || ui->lineEdit_WindowStyle->text() == "1000"
         || ui->lineEdit_WindowStyle->text() == "0001" || ui->lineEdit_WindowStyle->text() == "0011"
@@ -210,18 +226,18 @@ void MainWindow::on_lineEdit_WindowStyle_textChanged(const QString &)
     }
 }
 
-void MainWindow::on_lineEdit_FontSize_textChanged(const QString &)
+void Overview::on_lineEdit_FontSize_textChanged(const QString &)
 {
     settings.setValue("FontSize", ui->lineEdit_FontSize->text());
     initUi_Settings();
 }
 
-void MainWindow::on_pushButton_Quit_clicked()
+void Overview::on_pushButton_Quit_clicked()
 {
     QApplication::quit();
 }
 
-void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
+void Overview::on_lineEdit_IntervalNum_textChanged(const QString &)
 {
     static QRegularExpression rx("(\\,)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
     QList<QString> number = ui->lineEdit_IntervalNum->text().split(rx);
@@ -230,25 +246,25 @@ void MainWindow::on_lineEdit_IntervalNum_textChanged(const QString &)
     }
 }
 
-void MainWindow::on_lineEdit_ClientName_textChanged()
+void Overview::on_lineEdit_ClientName_textChanged()
 {
     settings.setValue("ClientName", ui->lineEdit_ClientName->text());
     initUi_Settings();
 }
 
-void MainWindow::on_pushButton_Start_pressed()
+void Overview::on_pushButton_Start_pressed()
 {
-    MainWindow::on_pushButton_Start_clicked();
+    Overview::on_pushButton_Start_clicked();
 }
 
-void MainWindow::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
+void Overview::on_lineEdit_NewKUCoeff_textChanged(const QString &arg1)
 {
     (void)arg1;
     settings.setValue("NewKUCoeff", ui->lineEdit_NewKUCoeff->text());
     initUi_Settings();
 }
 
-void MainWindow::on_pushButto_Manage_clicked()
+void Overview::on_pushButto_Manage_clicked()
 {
-    winDb->show();
+    winDb.show();
 }

@@ -3,6 +3,8 @@
 
 #include <QDateTime>
 
+namespace Qrammer::Dto {
+
 struct KnowledgeUnit
 {
     // 0ID, 1Question, 2Answer, 3PassingScore, 4PreviousScore,
@@ -24,5 +26,7 @@ struct KnowledgeUnit
     QByteArray AnswerImageBytes;
     QByteArray QuestionImageBytes;
 };
+
+} // namespace Qrammer::Dto
 
 #endif // KNOWLEDGE_UNIT_H
