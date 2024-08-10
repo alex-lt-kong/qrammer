@@ -1,5 +1,6 @@
 #include "snapshot.h"
-#include "src/qrammer/global_variables.h"
+
+using namespace Qrammer;
 
 Snapshot::Snapshot(const QString &category)
 {

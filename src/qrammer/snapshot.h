@@ -2,7 +2,7 @@
 #define SNAPSHOT_H
 
 #include <QtSql>
-
+namespace Qrammer {
 class Snapshot
 {
 public:
@@ -26,6 +26,6 @@ public:
     QString category;
 
 };
-
+} // namespace Qrammer
 #endif // SNAPSHOT_H
 

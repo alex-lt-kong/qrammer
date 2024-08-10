@@ -193,6 +193,7 @@ ORDER BY RANDOM() LIMIT 1
 void DB::openConnection()
 {
     if (!conn.isOpen()) {
+        conn.setConnectOptions("QSQLITE_BUSY_TIMEOUT=10000");
         SPDLOG_INFO("opening");
         if (!conn.open()) {
             throw runtime_error("Failed to open database: " + conn.lastError().text().toStdString());
@@ -290,17 +291,18 @@ WHERE is_shelved = 0
 ORDER BY category DESC
 )";
     auto query = execSelectQuery(stmt);
-    auto allCats = std::vector<Qrammer::Dto::Category>();
+    auto allCats = std::vector<Dto::Category>();
 
     while (query.next()) {
-        Qrammer::Dto::Category t;
+        Dto::Category t;
         t.name = query.value(0).toString();
         t.KuToCramCount = 0;
         t.snapshot = Snapshot(t.name);
         updateSnapshot(t.snapshot);
         auto catBinding = std::vector<std::pair<QString, QVariant>>{{":category", t.name}};
         for (int i = 1; i <= PROGRESS_LOOKBACK_PERIODS; ++i) {
-            auto stmt = QString(R"***(
+            {
+                auto stmt = QString(R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
@@ -308,10 +310,25 @@ WHERE
     DATE(first_practice_time) < DATE('now', '%2 day') AND
     category = :category
 )***")
-                            .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
-                            .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
-            auto q = db.execSelectQuery(stmt, catBinding);
-            t.histogram[i - 1] = q.first() ? q.value(0).toInt() : -1;
+                                .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
+                                .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
+                auto q = db.execSelectQuery(stmt, catBinding);
+                t.histCrammedCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
+            }
+            {
+                auto stmt = QString(R"***(
+SELECT COUNT(*)
+FROM knowledge_units
+WHERE
+    DATE(insert_time) >= DATE('now', '%1 day') AND
+    DATE(insert_time) < DATE('now', '%2 day') AND
+    category = :category
+)***")
+                                .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
+                                .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
+                auto q = db.execSelectQuery(stmt, catBinding);
+                t.histNewKuCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
+            }
         }
         allCats.emplace_back(std::move(t));
     }

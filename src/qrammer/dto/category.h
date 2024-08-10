@@ -15,7 +15,8 @@ struct Category
     size_t totalKuCount;
     size_t dueKuCount;
     Snapshot snapshot;
-    int histogram[PROGRESS_LOOKBACK_PERIODS];
+    int histCrammedCount[PROGRESS_LOOKBACK_PERIODS];
+    int histNewKuCount[PROGRESS_LOOKBACK_PERIODS];
 };
 
 } // namespace Qrammer::Dto

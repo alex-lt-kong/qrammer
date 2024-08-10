@@ -96,44 +96,88 @@ void Overview::initUi_Overview(QSqlQuery &query)
 
 void Overview::initUi_PrograssBarChart()
 {
-    int minVal = INT_MAX;
-    int maxVal = INT_MIN;
-    QBarSeries *series = new QBarSeries(this);
-    for (auto const &cat : availableCategory) {
-        auto *set = new QBarSet(cat.name);
-        for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
-            set->append(cat.histogram[i]);
-            minVal = minVal > cat.histogram[i] ? cat.histogram[i] : minVal;
-            maxVal = maxVal < cat.histogram[i] ? cat.histogram[i] : maxVal;
+    {
+        int minVal = INT_MAX;
+        int maxVal = INT_MIN;
+        QBarSeries *series = new QBarSeries(this);
+        for (auto const &cat : availableCategory) {
+            auto *set = new QBarSet(cat.name);
+            for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
+                set->append(cat.histCrammedCount[i]);
+                minVal = minVal > cat.histCrammedCount[i] ? cat.histCrammedCount[i] : minVal;
+                maxVal = maxVal < cat.histCrammedCount[i] ? cat.histCrammedCount[i] : maxVal;
+            }
+            // QBarSeries::append() takes ownership
+            // https://doc.qt.io/qt-6/qabstractbarseries.html#append
+            series->append(set);
         }
-        // QBarSeries::append() takes ownership
-        // https://doc.qt.io/qt-6/qabstractbarseries.html#append
-        series->append(set);
-    }
-    // will be owned by QChartView later
-    auto chart = new QChart();
-    chart->addSeries(series);
-    // chart->setTitle("Simple Bar Chart");
-    chart->setAnimationOptions(QChart::SeriesAnimations);
-    QStringList dates;
-    for (int i = PROGRESS_LOOKBACK_PERIODS; i > 0; --i) {
-        dates.append(QString("-w%1").arg(i));
-    }
-    auto axisX = new QBarCategoryAxis;
-    axisX->append(dates);
-    chart->addAxis(axisX, Qt::AlignBottom);
-    series->attachAxis(axisX);
+        // will be owned by QChartView later
+        auto chartCrammed = new QChart();
+        chartCrammed->addSeries(series);
+        chartCrammed->legend()->setAlignment(Qt::AlignLeft);
+        chartCrammed->setTitle(QString("Crammed knowledge units over the last %1 weeks")
+                                   .arg(PROGRESS_LOOKBACK_PERIODS));
+        chartCrammed->setAnimationOptions(QChart::SeriesAnimations);
+        QStringList dates;
+        for (int i = PROGRESS_LOOKBACK_PERIODS; i > 0; --i) {
+            dates.append(QString("-%1").arg(i));
+        }
+        auto axisX = new QBarCategoryAxis;
+        axisX->append(dates);
+        chartCrammed->addAxis(axisX, Qt::AlignBottom);
+        series->attachAxis(axisX);
 
-    auto axisY = new QValueAxis;
-    axisY->setRange(minVal == 0 ? 0 : minVal - 1, maxVal + 1);
-    chart->addAxis(axisY, Qt::AlignRight);
-    series->attachAxis(axisY);
-    // QChartView take the ownership of chart
-    // https://doc.qt.io/qt-5/qchartview.html#QChartView-1
-    auto cv = new QChartView(chart, this);
-    cv->setRenderHint(QPainter::Antialiasing);
+        auto axisY = new QValueAxis;
+        axisY->setRange(minVal >= 0 ? 0 : minVal - 1, maxVal + 1);
+        chartCrammed->addAxis(axisY, Qt::AlignRight);
+        series->attachAxis(axisY);
+        // QChartView take the ownership of chart
+        // https://doc.qt.io/qt-5/qchartview.html#QChartView-1
+        auto cvCrammed = new QChartView(chartCrammed, this);
+        cvCrammed->setRenderHint(QPainter::Antialiasing);
+        ui->groupBox_PrograssBarChart->layout()->addWidget(cvCrammed);
+    }
+    {
+        int minVal = INT_MAX;
+        int maxVal = INT_MIN;
+        QBarSeries *series = new QBarSeries(this);
+        for (auto const &cat : availableCategory) {
+            auto *set = new QBarSet(cat.name);
+            for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
+                set->append(cat.histNewKuCount[i]);
+                minVal = minVal > cat.histNewKuCount[i] ? cat.histNewKuCount[i] : minVal;
+                maxVal = maxVal < cat.histNewKuCount[i] ? cat.histNewKuCount[i] : maxVal;
+            }
+            // QBarSeries::append() takes ownership
+            // https://doc.qt.io/qt-6/qabstractbarseries.html#append
+            series->append(set);
+        }
+        // will be owned by QChartView later
+        auto chartNewKu = new QChart();
+        chartNewKu->addSeries(series);
+        chartNewKu->legend()->hide();
+        chartNewKu->setTitle(QString("Newly added knowledge units over the last %1 weeks")
+                                 .arg(PROGRESS_LOOKBACK_PERIODS));
+        chartNewKu->setAnimationOptions(QChart::SeriesAnimations);
+        QStringList dates;
+        for (int i = PROGRESS_LOOKBACK_PERIODS; i > 0; --i) {
+            dates.append(QString("-%1").arg(i));
+        }
+        auto axisX = new QBarCategoryAxis;
+        axisX->append(dates);
+        chartNewKu->addAxis(axisX, Qt::AlignBottom);
+        series->attachAxis(axisX);
 
-    ui->gridLayout_PrograssBarChat->addWidget(cv);
+        auto axisY = new QValueAxis;
+        axisY->setRange(minVal >= 0 ? 0 : minVal - 1, maxVal + 1);
+        chartNewKu->addAxis(axisY, Qt::AlignRight);
+        series->attachAxis(axisY);
+        // QChartView take the ownership of chart
+        // https://doc.qt.io/qt-5/qchartview.html#QChartView-1
+        auto cvCNewKu = new QChartView(chartNewKu, this);
+        cvCNewKu->setRenderHint(QPainter::Antialiasing);
+        ui->groupBox_PrograssBarChart->layout()->addWidget(cvCNewKu);
+    }
 }
 
 void Overview::initUi_CrammingSchedule()

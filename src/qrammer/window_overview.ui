@@ -57,7 +57,7 @@
         <property name="title">
          <string>Progress Stats</string>
         </property>
-        <layout class="QGridLayout" name="gridLayout_PrograssBarChat"/>
+        <layout class="QHBoxLayout" name="horizontalLayout_5" stretch=""/>
        </widget>
       </item>
      </layout>
