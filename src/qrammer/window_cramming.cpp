@@ -991,3 +991,15 @@ void Cramming::on_pushButton_ManageDB_clicked()
 {
     winDb.show();
 }
+
+void Cramming::on_pushButton_Delete_clicked()
+{
+    if (QMessageBox::question(this,
+                              "Qrammer",
+                              QString("Sure to remove the KU [%1]?").arg(cku.ID),
+                              QMessageBox::Yes | QMessageBox::No)
+        != QMessageBox::Yes)
+        return;
+    db.deleteKu(cku.ID);
+    initNextKU();
+}

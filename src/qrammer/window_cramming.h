@@ -57,6 +57,8 @@ private slots:
     void on_pushButton_ChooseAnswerImage_clicked();
     void on_pushButton_ManageDB_clicked();
 
+    void on_pushButton_Delete_clicked();
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
