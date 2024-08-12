@@ -270,7 +270,7 @@
        <widget class="QPushButton" name="pushButton_ManageDB">
         <property name="maximumSize">
          <size>
-          <width>64</width>
+          <width>96</width>
           <height>16777215</height>
          </size>
         </property>
@@ -283,7 +283,7 @@
        <widget class="QPushButton" name="pushButton_Delete">
         <property name="maximumSize">
          <size>
-          <width>64</width>
+          <width>96</width>
           <height>16777215</height>
          </size>
         </property>
@@ -302,7 +302,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>64</width>
+          <width>96</width>
           <height>16777215</height>
          </size>
         </property>
@@ -321,7 +321,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>64</width>
+          <width>96</width>
           <height>16777215</height>
          </size>
         </property>
@@ -343,7 +343,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>64</width>
+          <width>96</width>
           <height>16777215</height>
          </size>
         </property>
