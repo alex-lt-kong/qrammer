@@ -1,10 +1,10 @@
-#include "window_overview.h"
-#include "./dto/category.h"
-#include "db.h"
-#include "global_variables.h"
-#include "src/qrammer/ui_window_overview.h"
-#include "window_cramming.h"
-#include "window_manage_db.h"
+#include "overview.h"
+#include "src/qrammer/db.h"
+#include "src/qrammer/dto/category.h"
+#include "src/qrammer/global_variables.h"
+#include "src/qrammer/window/cramming.h"
+#include "src/qrammer/window/manage_db.h"
+#include "src/qrammer/window/ui_overview.h"
 
 #include <QBarCategoryAxis>
 #include <QBarSeries>

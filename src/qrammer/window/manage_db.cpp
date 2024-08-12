@@ -1,7 +1,7 @@
-﻿#include "window_manage_db.h"
-#include "global_variables.h"
-#include "src/qrammer/ui_window_manage_db.h"
-#include "utils.h"
+﻿#include "manage_db.h"
+#include "src/qrammer/global_variables.h"
+#include "src/qrammer/utils.h"
+#include "src/qrammer/window/ui_manage_db.h"
 
 #include <QFileDialog>
 #include <spdlog/spdlog.h>

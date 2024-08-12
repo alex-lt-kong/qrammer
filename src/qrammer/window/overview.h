@@ -1,8 +1,8 @@
 #ifndef WINDOW_OVERVIEW_H
 #define WINDOW_OVERVIEW_H
 
-#include "src/qrammer/window_cramming.h"
-#include "src/qrammer/window_manage_db.h"
+#include "src/qrammer/window/cramming.h"
+#include "src/qrammer/window/manage_db.h"
 
 #include <QDir>
 #include <QList>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>msgBox</class>
- <widget class="QDialog" name="msgBox">
+ <class>Qrammer::Window::CrammingReminder</class>
+ <widget class="QDialog" name="Qrammer::Window::CrammingReminder">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -14,7 +14,7 @@
    <string>Qrammer - Break Reminder</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resources/res.qrc">
+   <iconset resource="../../../resources/res.qrc">
     <normaloff>:/qrammer.ico</normaloff>:/qrammer.ico</iconset>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -65,7 +65,7 @@
   </layout>
  </widget>
  <resources>
-  <include location="../../resources/res.qrc"/>
+  <include location="../../../resources/res.qrc"/>
  </resources>
  <connections/>
 </ui>

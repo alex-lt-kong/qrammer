@@ -1,12 +1,11 @@
-#include "src/qrammer/window_cramming.h"
-#include "db.h"
-#include "msgbox.h"
+#include "src/qrammer/window/cramming.h"
+#include "src/qrammer/db.h"
 #include "src/qrammer/global_variables.h"
-#include "src/qrammer/ui_window_cramming.h"
-#include "src/qrammer/window_manage_db.h"
-#include "utils.h"
+#include "src/qrammer/utils.h"
+#include "src/qrammer/window/cramming_reminder.h"
+#include "src/qrammer/window/manage_db.h"
+#include "src/qrammer/window/ui_cramming.h"
 
-#include <QAudioOutput>
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <spdlog/spdlog.h>
@@ -144,12 +143,11 @@ void Cramming::tmrInterval()
     timerDelay->stop();
     secDelayed = 0;
 
-    msgBox *myMsg = new msgBox(); // This is needed since a timeout before selection is required.
-    myMsg->setWindowModality(Qt::ApplicationModal);
-    myMsg->exec();
+    auto myCr = CrammingReminder(); // This is needed since a timeout before selection is required.
+    myCr.setWindowModality(Qt::ApplicationModal);
+    myCr.exec();
 
-    if (myMsg->isAccepted()) {
-        // restoreWindowLayout();
+    if (myCr.isAccepted()) {
         show();
         initNextKU();
     } else {
@@ -916,11 +914,6 @@ void Cramming::keyPressEvent(QKeyEvent *event)
     QMainWindow::keyPressEvent(event);
 }
 
-void Cramming::on_pushButton_Skip_clicked()
-{
-    initNextKU();
-}
-
 void Cramming::on_textEdit_Question_textChanged()
 {
     adaptTexteditHeight(ui->textEdit_Question);
@@ -935,7 +928,7 @@ void Cramming::on_textEdit_Info_textChanged()
 
 void Cramming::on_pushButton_Skip_pressed()
 {
-    Cramming::on_pushButton_Skip_clicked();
+    initNextKU();
 }
 
 void Cramming::on_pushButton_Check_pressed()

@@ -14,7 +14,7 @@
    <string>Qrammer - Cramming in progress</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resources/res.qrc">
+   <iconset resource="../../../resources/res.qrc">
     <normaloff>:/qrammer.ico</normaloff>:/qrammer.ico</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -268,6 +268,12 @@
       </item>
       <item>
        <widget class="QPushButton" name="pushButton_ManageDB">
+        <property name="maximumSize">
+         <size>
+          <width>64</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="text">
          <string>Manage DB</string>
         </property>
@@ -275,6 +281,12 @@
       </item>
       <item>
        <widget class="QPushButton" name="pushButton_Delete">
+        <property name="maximumSize">
+         <size>
+          <width>64</width>
+          <height>16777215</height>
+         </size>
+        </property>
         <property name="text">
          <string>Delete</string>
         </property>
@@ -287,6 +299,12 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>64</width>
+          <height>16777215</height>
+         </size>
         </property>
         <property name="text">
          <string>Skip</string>
@@ -303,7 +321,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>16777215</width>
+          <width>64</width>
           <height>16777215</height>
          </size>
         </property>
@@ -325,7 +343,7 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>16777215</width>
+          <width>64</width>
           <height>16777215</height>
          </size>
         </property>
@@ -344,7 +362,7 @@ Ctrl+Down</string>
   </widget>
  </widget>
  <resources>
-  <include location="../../resources/res.qrc"/>
+  <include location="../../../resources/res.qrc"/>
  </resources>
  <connections/>
 </ui>

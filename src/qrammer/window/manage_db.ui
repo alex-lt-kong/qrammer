@@ -14,7 +14,7 @@
    <string>Qrammer - DB Utility</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resources/res.qrc">
+   <iconset resource="../../../resources/res.qrc">
     <normaloff>:/qrammer-db-tool.ico</normaloff>:/qrammer-db-tool.ico</iconset>
   </property>
   <widget class="QWidget" name="centralWidget">
@@ -747,7 +747,7 @@
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
-  <include location="../../resources/res.qrc"/>
+  <include location="../../../resources/res.qrc"/>
  </resources>
  <connections/>
 </ui>

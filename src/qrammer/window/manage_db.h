@@ -1,7 +1,7 @@
 #ifndef WINDOW_MANAGE_DB_H
 #define WINDOW_MANAGE_DB_H
 
-#include "./dto/knowledge_unit.h"
+#include "./src/qrammer/dto/knowledge_unit.h"
 
 #include <QMainWindow>
 #include <QtSql>

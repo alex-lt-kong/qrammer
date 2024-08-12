@@ -1,11 +1,11 @@
+#include "./src/qrammer/window/overview.h"
 #include "global_variables.h"
-#include "logger.h"
-
-#include "window_overview.h"
+#include "utils.h"
 
 #include <QApplication>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <spdlog/spdlog.h>
 
 #include <filesystem>
 
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     spdlog::default_logger()->flush();
     db = DB(dbPath);
 
-    Qrammer::Window::Overview w;
+    Window::Overview w;
     int retval = -1;
     if (w.init()) {
         w.showMaximized();

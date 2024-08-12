@@ -1,22 +1,23 @@
-#ifndef MSGBOX_H
-#define MSGBOX_H
+#ifndef CRAMMING_REMINDER_H
+#define CRAMMING_REMINDER_H
 
 #include <QDialog>
 #include <QThread>
 #include <QTimer>
 #include <QKeyEvent>
 
+namespace Qrammer::Window {
 namespace Ui {
-class msgBox;
+class CrammingReminder;
 }
 
-class msgBox : public QDialog
+class CrammingReminder : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit msgBox(QWidget *parent = nullptr);
-    ~msgBox();
+    explicit CrammingReminder(QWidget *parent = nullptr);
+    ~CrammingReminder();
     bool isAccepted();
 
 protected:
@@ -34,7 +35,7 @@ private slots:
     void on_pushButton_No_pressed();
 
 private:
-    Ui::msgBox *ui;
+    Ui::CrammingReminder *ui;
 
     QTimer* timerDelay;
 
@@ -42,5 +43,6 @@ private:
 
     int delayedSec = 0;
 };
+} // namespace Qrammer::Window
 
-#endif // MSGBOX_H
+#endif // CRAMMING_REMINDER_H

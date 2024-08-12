@@ -1,8 +1,8 @@
 #ifndef WINDOW_CRAMMING_H
 #define WINDOW_CRAMMING_H
 
-#include "./dto/knowledge_unit.h"
-#include "src/qrammer/window_manage_db.h"
+#include "src/qrammer/dto/knowledge_unit.h"
+#include "src/qrammer/window/manage_db.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -46,7 +46,6 @@ private slots:
     void showContextMenu_Answer(const QPoint &pt);
     void showContextMenu_Blank(const QPoint &pt);
     void tmrInterval();
-    void on_pushButton_Skip_clicked();
     void on_textEdit_Question_textChanged();
     void on_textEdit_Info_textChanged();
     void on_pushButton_Skip_pressed();

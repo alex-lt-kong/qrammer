@@ -20,41 +20,40 @@ set(app_icon_resource_windows "${CMAKE_CURRENT_SOURCE_DIR}/resources/res.win.rc"
 
 qt_add_executable(qrammer WIN32 MACOSX_BUNDLE
     src/qrammer/main.cpp
-    src/qrammer/window_overview.cpp
-    src/qrammer/window_overview.h
-    src/qrammer/window_overview.ui
 
-    src/qrammer/msgbox.cpp
-    src/qrammer/msgbox.h
-    src/qrammer/msgbox.ui
+    src/qrammer/window/overview.cpp
+    src/qrammer/window/overview.h
+    src/qrammer/window/overview.ui
 
-    src/qrammer/window_cramming.cpp
-    src/qrammer/window_cramming.h
-    src/qrammer/window_cramming.ui
+    src/qrammer/window/cramming_reminder.cpp
+    src/qrammer/window/cramming_reminder.h
+    src/qrammer/window/cramming_reminder.ui
 
-    src/qrammer/snapshot.cpp
-    src/qrammer/snapshot.h
+    src/qrammer/window/cramming.cpp
+    src/qrammer/window/cramming.h
+    src/qrammer/window/cramming.ui
 
-    src/qrammer/global_variables.h
-    src/qrammer/global_variables.cpp
+    src/qrammer/window/manage_db.cpp
+    src/qrammer/window/manage_db.h
+    src/qrammer/window/manage_db.ui
 
-    src/qrammer/logger.h  src/qrammer/logger.cpp
-    src/qrammer/utils.h   src/qrammer/utils.cpp
+
+    src/qrammer/db.h                  src/qrammer/db.cpp
+    src/qrammer/snapshot.h            src/qrammer/snapshot.cpp
+    src/qrammer/global_variables.h    src/qrammer/global_variables.cpp
+
+    src/qrammer/utils.h               src/qrammer/utils.cpp
 
     resources/res.qrc
 
-    cmake/compiler-flags.cmake cmake/sanitizers.cmake
+    cmake/compiler-flags.cmake
+    cmake/sanitizers.cmake
     cmake/git.cmake
 
     ./src/qrammer/dto/knowledge_unit.h
     ./src/qrammer/dto/category.h
 
-    ./src/qrammer/db.h
-    ./src/qrammer/db.cpp
 
-    src/qrammer/window_manage_db.cpp
-    src/qrammer/window_manage_db.h
-    src/qrammer/window_manage_db.ui
 
     ${app_icon_resource_windows}
 )

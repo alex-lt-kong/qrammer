@@ -8,7 +8,10 @@
 #define ANSWER_IMAGE_DIMENSION 640
 #define QUESTION_IMAGE_DIMENSION 640
 
+void init_logger();
+
 void execExternalProgramAsync(const std::string cmd);
+
 QPixmap selectImageFromFileSystem();
 
 #endif // UTILS_H
