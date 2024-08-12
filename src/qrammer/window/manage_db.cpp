@@ -423,11 +423,20 @@ void ManageDB::on_pushButton_Delete_clicked()
 
 void ManageDB::on_pushButton_ChooseImage_clicked()
 {
-    ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+    auto pixmap = selectImageFromFileSystem();
+    if (pixmap.isNull()) {
+        ui->label_AnswerImage->setText("[Empty]");
+    } else {
+        ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+    }
 }
 
 void ManageDB::on_pushButton_ChooseQuestionImage_clicked()
 {
-    qDebug("WindowManageDB::on_pushButton_ChooseQuestionImage_clicked()");
-    ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
+    auto pixmap = selectImageFromFileSystem();
+    if (pixmap.isNull()) {
+        ui->label_QuestionImage->setText("[Empty]");
+    } else {
+        ui->label_QuestionImage->setPixmap(pixmap);
+    }
 }

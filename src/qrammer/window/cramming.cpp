@@ -971,13 +971,22 @@ void Cramming::on_textEdit_Response_textChanged()
 
 void Cramming::on_pushButton_ChooseQuestionImage_clicked()
 {
-    qDebug("Cramming::on_pushButton_ChooseQuestionImage_clicked()");
-    ui->label_QuestionImage->setPixmap(selectImageFromFileSystem());
+    auto pixmap = selectImageFromFileSystem();
+    if (pixmap.isNull()) {
+        ui->label_QuestionImage->setText("[Empty]");
+    } else {
+        ui->label_QuestionImage->setPixmap(pixmap);
+    }
 }
 
 void Cramming::on_pushButton_ChooseAnswerImage_clicked()
 {
-    ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+    auto pixmap = selectImageFromFileSystem();
+    if (pixmap.isNull()) {
+        ui->label_AnswerImage->setText("[Empty]");
+    } else {
+        ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+    }
 }
 
 void Cramming::on_pushButton_ManageDB_clicked()
