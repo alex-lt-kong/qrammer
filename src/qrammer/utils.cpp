@@ -41,10 +41,7 @@ void execExternalProgramAsync(const string cmd)
 
 QPixmap selectImageFromFileSystem()
 {
-    QString fileName = QFileDialog::getOpenFileName(nullptr,
-                                                    "Select an image",
-                                                    nullptr,
-                                                    "Images (*.png *.bmp *.jpg *.jpeg *.webp)");
+    QString fileName = QFileDialog::getOpenFileName(nullptr, "Select an image", nullptr, nullptr);
     QPixmap image;
     if (fileName.isEmpty()) {
         SPDLOG_INFO("No file is selected");
