@@ -51,7 +51,6 @@ private:
 
     QMap<QString, int> searchResults;
 
-    int currKUID;
     struct Dto::KnowledgeUnit cku;
 };
 } // namespace Qrammer::Window

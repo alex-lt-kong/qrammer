@@ -53,7 +53,7 @@ void ManageDB::initCategory()
         return;
     }
     ui->comboBox_Maintype_Search->addItems(t);
-    ui->comboBox_Maintype_Meta->addItems(t);
+    ui->comboBox_Category->addItems(t);
 }
 
 void ManageDB::conductDatabaseSearch(QString field, QString keyword, QString category)
@@ -76,7 +76,7 @@ LIMIT 50)***")
                                                                              {":keyword", keyword}});
     } catch (const std::runtime_error &e) {
         auto errMsg
-            = QString("Error conductDatabaseSearch()ing, reason: %2").arg(currKUID).arg(e.what());
+            = QString("Error conductDatabaseSearch()ing, reason: %2").arg(cku.ID).arg(e.what());
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
@@ -97,18 +97,16 @@ LIMIT 50)***")
 
 void ManageDB::showSingleKU(int kuID)
 {
-    currKUID = kuID;
     try {
-        cku = db.selectKuById(currKUID);
+        cku = db.selectKuById(kuID);
     } catch (const std::runtime_error &e) {
-        auto errMsg = QString("Error loading knowledge unit (ID: %1), reason: %2")
-                          .arg(currKUID)
-                          .arg(e.what());
+        auto errMsg
+            = QString("Error loading knowledge unit (ID: %1), reason: %2").arg(kuID).arg(e.what());
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
-    } catch (const std::invalid_argument &e) {
-        (void) e;
+    }
+    if (cku.ID == -1) {
         ui->lineEdit_KUID->setText("");
 
         if (ui->comboBox_Field->currentText() == "Question") {
@@ -137,8 +135,6 @@ void ManageDB::showSingleKU(int kuID)
         ui->pushButton_Delete->setEnabled(false);
 
         ui->listWidget_SearchResults->clearSelection();
-
-        currKUID = -1;
         return;
     }
 
@@ -147,7 +143,7 @@ void ManageDB::showSingleKU(int kuID)
     ui->plainTextEdit_Answer->setPlainText(cku.Answer);
     ui->lineEdit_PassingScore->setText(QString::number(cku.PassingScore));
     ui->lineEdit_TimesPracticed->setText(QString::number(cku.TimesPracticed));
-    ui->comboBox_Maintype_Meta->setEditText(cku.Category);
+    ui->comboBox_Category->setEditText(cku.Category);
     ui->lineEdit_Deadline->setText(cku.Deadline.toString("yyyy-MM-dd HH:mm:ss"));
 
     ui->lineEdit_InsertDate->setText(cku.InsertTime.toString("yyyy-MM-dd"));
@@ -187,7 +183,7 @@ void ManageDB::showSingleKU(int kuID)
 
 bool ManageDB::inputValidityCheck()
 {
-    if (ui->comboBox_Maintype_Meta->currentText().size() <= 0) {
+    if (ui->comboBox_Category->currentText().size() <= 0) {
         QMessageBox::information(this, "Information missing", "Field [Category] must be filled");
         return false;
     }
@@ -218,14 +214,16 @@ bool ManageDB::inputValidityCheck()
 void ManageDB::on_comboBox_Field_currentTextChanged(const QString &)
 {
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
-                          ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
+                          ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()
+                              + ui->lineEdit_Keyword_Suffix->text(),
+                          ui->comboBox_Maintype_Search->currentText());
 
     setWindowTitle("Qrammer - DB Utility [" + ui->comboBox_Field->currentText() + "]");
 }
 
 void ManageDB::on_comboBox_Maintype_Search_currentTextChanged(const QString &)
 {
-    ui->comboBox_Maintype_Meta->setCurrentText(ui->comboBox_Maintype_Search->currentText());
+    ui->comboBox_Category->setCurrentText(ui->comboBox_Maintype_Search->currentText());
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text() + ui->lineEdit_Keyword_Suffix->text(), ui->comboBox_Maintype_Search->currentText());
 }
@@ -253,125 +251,45 @@ void ManageDB::on_pushButton_WriteDB_clicked()
     if (!inputValidityCheck())
         return;
 
-    if (!db.conn.isOpen() && !db.conn.open()) {
-        SPDLOG_ERROR(db.conn.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", db.conn.lastError().text());
-        return;
-    }
+    cku.Question = ui->plainTextEdit_Question->toPlainText();
+    cku.Answer = ui->plainTextEdit_Answer->toPlainText();
+    cku.PassingScore = ui->lineEdit_PassingScore->text().toDouble();
+    cku.Category = ui->comboBox_Category->currentText();
+    // inputValidityCheck() makes sure the lineEdit should only have one of these two formats
+    if (QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd HH:mm:ss").isValid())
+        cku.Deadline = QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd HH:mm:ss");
+    else
+        cku.Deadline = QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd");
 
-    QSqlQuery query = QSqlQuery(db.conn);
-    if (currKUID == -1) {
-        auto stmt = QString(R"***(
-INSERT INTO knowledge_units (
-    question,
-    answer,
-    times_practiced,
-    previous_score,
-    category,
-    passing_score,
-    deadline,
-    insert_time,
-    last_practice_time,
-    client_name,
-    question_image,
-    answer_image
-)
-VALUES (
-    :question,
-    :answer,
-    :times_practiced,
-    :previous_score,
-    :category,
-    :passing_score,
-    :deadline,
-    DATETIME('Now', 'localtime'),
-    :last_practice_time,
-    :client_name,
-    :question_image,
-    :answer_image
-)
-)***");
-        if (!query.prepare(stmt)) {
-            SPDLOG_ERROR(query.lastError().text().toStdString());
-            QMessageBox::critical(this, "Error", query.lastError().text());
-            return;
-        }
-        query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
-
-        query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
-        query.bindValue(":times_practiced", 0);
-        query.bindValue(":previous_score", 0);
-        query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
-        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-        query.bindValue(":deadline", ui->lineEdit_Deadline->text());
-        query.bindValue(":last_practice_time", "");
-        query.bindValue(":client_name", "");
-        if (!ui->label_QuestionImage->pixmap().isNull()) {
-            QByteArray bArray;
-            QBuffer buffer(&bArray);
-            buffer.open(QIODevice::WriteOnly);
-            ui->label_QuestionImage->pixmap().save(&buffer, "PNG");
-            query.bindValue(":question_image", bArray);
-        } else {
-            query.bindValue(":answer_image", QByteArray());
-        }
-        if (!ui->label_AnswerImage->pixmap().isNull()) {
-            QByteArray bArray;
-            QBuffer buffer(&bArray);
-            buffer.open(QIODevice::WriteOnly);
-            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
-            query.bindValue(":answer_image", bArray);
-        } else {
-            query.bindValue(":answer_image", QByteArray());
-        }
+    if (!ui->label_QuestionImage->pixmap().isNull()) {
+        QBuffer buffer(&cku.QuestionImageBytes);
+        buffer.open(QIODevice::WriteOnly);
+        ui->label_QuestionImage->pixmap().save(&buffer, "PNG");
     } else {
-        auto stmt = R"***(
-UPDATE knowledge_units
-SET
-    question = :question,
-    answer = :answer,
-    passing_score = :passing_score,
-    category = :category,
-    deadline = :deadline,
-    question_image = :question_image,
-    answer_image = :answer_image
-WHERE id = :id)***";
-        if (!query.prepare(stmt)) {
-            SPDLOG_ERROR(query.lastError().text().toStdString());
-            QMessageBox::critical(this, "Error", query.lastError().text());
-            return;
-        }
-        query.bindValue(":question", ui->plainTextEdit_Question->toPlainText());
-        query.bindValue(":answer", ui->plainTextEdit_Answer->toPlainText());
-        query.bindValue(":passing_score", ui->lineEdit_PassingScore->text());
-        query.bindValue(":category", ui->comboBox_Maintype_Meta->currentText());
-        query.bindValue(":deadline", ui->lineEdit_Deadline->text());
-        query.bindValue(":id", currKUID);
-        if (!ui->label_QuestionImage->pixmap().isNull()) {
-            QByteArray bArray;
-            QBuffer buffer(&bArray);
-            buffer.open(QIODevice::WriteOnly);
-            ui->label_QuestionImage->pixmap().save(&buffer, "PNG");
-            query.bindValue(":question_image", bArray);
-        } else {
-            query.bindValue(":question_image", QByteArray());
-        }
-        if (!ui->label_AnswerImage->pixmap().isNull()) {
-            QByteArray bArray;
-            QBuffer buffer(&bArray);
-            buffer.open(QIODevice::WriteOnly);
-            ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
-            query.bindValue(":answer_image", bArray);
-        } else {
-            query.bindValue(":answer_image", QByteArray());
-        }
+        cku.QuestionImageBytes = QByteArray();
     }
-    if (!query.exec()) {
-        SPDLOG_ERROR(query.lastError().text().toStdString());
-        QMessageBox::critical(this, "Error", query.lastError().text());
+
+    if (!ui->label_AnswerImage->pixmap().isNull()) {
+        QBuffer buffer(&cku.AnswerImageBytes);
+        buffer.open(QIODevice::WriteOnly);
+        ui->label_AnswerImage->pixmap().save(&buffer, "PNG");
+    } else {
+        cku.AnswerImageBytes = QByteArray();
     }
-    showSingleKU(-1);
-    // db.close();
+
+    if (cku.ID == -1) {
+        cku.TimesPracticed = 0;
+        cku.PreviousScore = 0;
+        cku.LastPracticeTime = QDateTime();
+        cku.ClientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
+        db.insertKu(cku);
+    } else {
+        db.updateKu(cku);
+    }
+    conductDatabaseSearch(ui->comboBox_Field->currentText(),
+                          ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()
+                              + ui->lineEdit_Keyword_Suffix->text(),
+                          ui->comboBox_Maintype_Search->currentText());
 }
 
 void ManageDB::on_lineEdit_Keyword_Suffix_textChanged(const QString &)
@@ -401,16 +319,16 @@ void ManageDB::on_pushButton_Delete_clicked()
 {
     if (QMessageBox::question(this,
                               "Qrammer",
-                              QString("Sure to remove the KU [%1]?").arg(currKUID),
+                              QString("Sure to delete knowledge unit [%1]?").arg(cku.ID),
                               QMessageBox::Yes | QMessageBox::No)
         != QMessageBox::Yes)
         return;
 
     try {
-        db.deleteKu(currKUID);
+        db.deleteKu(cku.ID);
     } catch (const std::runtime_error &e) {
         auto errMsg = QString("Error deleteing knowledge unit (ID: %1), reason: %2")
-                          .arg(currKUID)
+                          .arg(cku.ID)
                           .arg(e.what());
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);

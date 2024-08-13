@@ -23,8 +23,10 @@ public:
     struct Dto::KnowledgeUnit getNewKu(const QString &category);
     struct Dto::KnowledgeUnit getRandomOldKu(const Qrammer::Dto::Category &cat);
     int updateKu(const struct Dto::KnowledgeUnit &ku);
+    int insertKu(const struct Dto::KnowledgeUnit &ku);
     void deleteKu(const struct Dto::KnowledgeUnit &ku);
     void deleteKu(const int kuId);
+    /// If ku by given kuId is not found, return an invalid ku with Id == -1
     struct Dto::KnowledgeUnit selectKuById(const int kuId);
     void openConnection();
     QSqlQuery openConnThenPrepareQuery(const QString &stmt);

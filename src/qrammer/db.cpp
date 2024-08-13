@@ -154,10 +154,10 @@ WHERE id = :id
     auto query = execSelectQuery(stmt, std::vector<std::pair<QString, QVariant>>{{":id", kuid}});
     if (query.first()) {
         return fillinKu(query);
-    } else {
-        throw invalid_argument(
-            QString("Knowledge unit with ID = %1 does not exist").arg(kuid).toStdString());
     }
+    struct Dto::KnowledgeUnit ku;
+    ku.ID = -1;
+    return ku;
 }
 
 struct Dto::KnowledgeUnit DB::getRandomOldKu(const Qrammer::Dto::Category &cat)
@@ -493,7 +493,7 @@ int DB::updateKu(const struct Dto::KnowledgeUnit &ku)
     auto stmt = QString(R"**(
 UPDATE knowledge_units
 SET
-    last_practice_time = DATETIME('Now', 'localtime'),
+    last_practice_time = :last_practice_time,
     previous_score = :previous_score,
     question = :question,
     answer = :answer,
@@ -508,7 +508,8 @@ SET
 WHERE id = :id
 )**");
     auto query = openConnThenPrepareQuery(stmt);
-    query.bindValue(":previous_score", ku.NewScore);
+    query.bindValue(":last_practice_time", ku.LastPracticeTime);
+    query.bindValue(":previous_score", ku.PreviousScore);
     query.bindValue(":question", ku.Question);
     query.bindValue(":answer", ku.Answer);
     query.bindValue(":times_practiced", ku.TimesPracticed);
@@ -520,6 +521,53 @@ WHERE id = :id
     query.bindValue(":id", ku.ID);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
     query.bindValue(":question_image", ku.QuestionImageBytes);
+    return execPreparedQuery(query);
+}
+
+int DB::insertKu(const struct Dto::KnowledgeUnit &ku)
+{
+    auto stmt = QString(R"***(
+INSERT INTO knowledge_units (
+    question,
+    answer,
+    times_practiced,
+    previous_score,
+    category,
+    passing_score,
+    deadline,
+    insert_time,
+    last_practice_time,
+    client_name,
+    question_image,
+    answer_image
+)
+VALUES (
+    :question,
+    :answer,
+    :times_practiced,
+    :previous_score,
+    :category,
+    :passing_score,
+    :deadline,
+    DATETIME('Now', 'localtime'),
+    :last_practice_time,
+    :client_name,
+    :question_image,
+    :answer_image
+)
+)***");
+    auto query = openConnThenPrepareQuery(stmt);
+    query.bindValue(":question", ku.Question);
+    query.bindValue(":answer", ku.Answer);
+    query.bindValue(":times_practiced", ku.TimesPracticed);
+    query.bindValue(":previous_score", ku.PreviousScore);
+    query.bindValue(":category", ku.Category);
+    query.bindValue(":passing_score", ku.PassingScore);
+    query.bindValue(":deadline", ku.Deadline);
+    query.bindValue(":last_practice_time", ku.LastPracticeTime);
+    query.bindValue(":client_name", ku.ClientName);
+    query.bindValue(":question_image", ku.QuestionImageBytes);
+    query.bindValue(":answer_image", ku.AnswerImageBytes);
     return execPreparedQuery(query);
 }
 

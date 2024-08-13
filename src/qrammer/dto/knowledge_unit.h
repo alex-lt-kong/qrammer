@@ -14,7 +14,6 @@ struct KnowledgeUnit
     QString Answer;
     double PassingScore;
     double PreviousScore;
-    double NewScore;
     int TimesPracticed;
     QDateTime InsertTime;
     QDateTime FirstPracticeTime;

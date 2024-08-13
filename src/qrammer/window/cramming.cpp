@@ -186,7 +186,7 @@ void Cramming::updateCkuByGuiElements()
     cku.Question = ui->textEdit_Question->toPlainText();
     cku.Answer = ui->textEdit_Answer->toPlainText();
     cku.PassingScore = ui->lineEdit_PassingScore->text().toDouble();
-    cku.NewScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
+    cku.PreviousScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
     cku.timeUsedSec += ((QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300)
                             ? 300
                             : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
@@ -196,8 +196,8 @@ void Cramming::updateCkuByGuiElements()
         cku.FirstPracticeTime = QDateTime::currentDateTime();
     }
 
-    if (cku.NewScore - cku.PassingScore < 0) {
-        double addedDays = 30 - (cku.PassingScore - cku.NewScore);
+    if (cku.PreviousScore - cku.PassingScore < 0) {
+        double addedDays = 30 - (cku.PassingScore - cku.PreviousScore);
         cku.Deadline = QDateTime::currentDateTime().addDays(addedDays);
     } else {
         cku.Deadline = QDateTime();
@@ -222,7 +222,12 @@ void Cramming::updateCkuByGuiElements()
 
 bool Cramming::finalizeKuJustBeingCrammed()
 {
-    assert(availableCategory[currCatIndex].KuToCramCount > 0);
+    if (availableCategory[currCatIndex].KuToCramCount <= 0) {
+        std::string errMsg = "availableCategory[currCatIndex].KuToCramCount <= 0";
+        SPDLOG_ERROR(errMsg);
+        throw std::runtime_error(errMsg);
+    }
+    cku.LastPracticeTime = QDateTime().currentDateTime();
 
     while (true) {
         try {
@@ -985,7 +990,7 @@ void Cramming::on_pushButton_ChooseAnswerImage_clicked()
     if (pixmap.isNull()) {
         ui->label_AnswerImage->setText("[Empty]");
     } else {
-        ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+        ui->label_AnswerImage->setPixmap(pixmap);
     }
 }
 
