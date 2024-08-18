@@ -306,8 +306,8 @@ ORDER BY category DESC
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
-    DATE(first_practice_time) >= DATE('now', '%1 day') AND
-    DATE(first_practice_time) < DATE('now', '%2 day') AND
+    DATE(first_practice_time) > DATE('now', '%1 day') AND
+    DATE(first_practice_time) <= DATE('now', '%2 day') AND
     category = :category
 )***")
                                 .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
@@ -320,8 +320,8 @@ WHERE
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
-    DATE(insert_time) >= DATE('now', '%1 day') AND
-    DATE(insert_time) < DATE('now', '%2 day') AND
+    DATE(insert_time) > DATE('now', '%1 day') AND
+    DATE(insert_time) <= DATE('now', '%2 day') AND
     category = :category
 )***")
                                 .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
