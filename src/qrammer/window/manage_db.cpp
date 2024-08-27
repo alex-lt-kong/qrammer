@@ -345,7 +345,7 @@ void ManageDB::on_pushButton_ChooseImage_clicked()
     if (pixmap.isNull()) {
         ui->label_AnswerImage->setText("[Empty]");
     } else {
-        ui->label_AnswerImage->setPixmap(selectImageFromFileSystem());
+        ui->label_AnswerImage->setPixmap(pixmap);
     }
 }
 

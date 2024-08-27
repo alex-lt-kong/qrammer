@@ -306,28 +306,28 @@ ORDER BY category DESC
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
-    DATE(first_practice_time) >= DATE('now', '%1 day') AND
-    DATE(first_practice_time) < DATE('now', '%2 day') AND
+    DATE(first_practice_time) > DATE('now', '%1 day') AND
+    DATE(first_practice_time) <= DATE('now', '%2 day') AND
     category = :category
 )***")
                                 .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
                                 .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
                 auto q = db.execSelectQuery(stmt, catBinding);
-                t.histCrammedCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
+                t.histFirstAppearKuCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
             }
             {
                 auto stmt = QString(R"***(
 SELECT COUNT(*)
 FROM knowledge_units
 WHERE
-    DATE(insert_time) >= DATE('now', '%1 day') AND
-    DATE(insert_time) < DATE('now', '%2 day') AND
+    DATE(insert_time) > DATE('now', '%1 day') AND
+    DATE(insert_time) <= DATE('now', '%2 day') AND
     category = :category
 )***")
                                 .arg(i * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD)
                                 .arg((i - 1) * -1 * PROGRESS_LOOKBACK_DAYS_PER_PERIOD);
                 auto q = db.execSelectQuery(stmt, catBinding);
-                t.histNewKuCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
+                t.histNewlyAddedKuCount[i - 1] = q.first() ? q.value(0).toInt() : -1;
             }
         }
         allCats.emplace_back(std::move(t));

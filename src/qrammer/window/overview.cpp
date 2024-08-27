@@ -103,9 +103,11 @@ void Overview::initUi_PrograssBarChart()
         for (auto const &cat : availableCategory) {
             auto *set = new QBarSet(cat.name);
             for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
-                set->append(cat.histCrammedCount[i]);
-                minVal = minVal > cat.histCrammedCount[i] ? cat.histCrammedCount[i] : minVal;
-                maxVal = maxVal < cat.histCrammedCount[i] ? cat.histCrammedCount[i] : maxVal;
+                set->append(cat.histFirstAppearKuCount[i]);
+                minVal = minVal > cat.histFirstAppearKuCount[i] ? cat.histFirstAppearKuCount[i]
+                                                                : minVal;
+                maxVal = maxVal < cat.histFirstAppearKuCount[i] ? cat.histFirstAppearKuCount[i]
+                                                                : maxVal;
             }
             // QBarSeries::append() takes ownership
             // https://doc.qt.io/qt-6/qabstractbarseries.html#append
@@ -115,8 +117,9 @@ void Overview::initUi_PrograssBarChart()
         auto chartCrammed = new QChart();
         chartCrammed->addSeries(series);
         chartCrammed->legend()->setAlignment(Qt::AlignLeft);
-        chartCrammed->setTitle(QString("Crammed knowledge units over the last %1 weeks")
-                                   .arg(PROGRESS_LOOKBACK_PERIODS));
+        chartCrammed->setTitle(
+            QString("Knowledge units appear the first time over the last %1 weeks")
+                .arg(PROGRESS_LOOKBACK_PERIODS));
         chartCrammed->setAnimationOptions(QChart::SeriesAnimations);
         QStringList dates;
         for (int i = PROGRESS_LOOKBACK_PERIODS; i > 0; --i) {
@@ -144,9 +147,11 @@ void Overview::initUi_PrograssBarChart()
         for (auto const &cat : availableCategory) {
             auto *set = new QBarSet(cat.name);
             for (int i = PROGRESS_LOOKBACK_PERIODS - 1; i >= 0; --i) {
-                set->append(cat.histNewKuCount[i]);
-                minVal = minVal > cat.histNewKuCount[i] ? cat.histNewKuCount[i] : minVal;
-                maxVal = maxVal < cat.histNewKuCount[i] ? cat.histNewKuCount[i] : maxVal;
+                set->append(cat.histNewlyAddedKuCount[i]);
+                minVal = minVal > cat.histNewlyAddedKuCount[i] ? cat.histNewlyAddedKuCount[i]
+                                                               : minVal;
+                maxVal = maxVal < cat.histNewlyAddedKuCount[i] ? cat.histNewlyAddedKuCount[i]
+                                                               : maxVal;
             }
             // QBarSeries::append() takes ownership
             // https://doc.qt.io/qt-6/qabstractbarseries.html#append
