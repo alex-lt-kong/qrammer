@@ -498,6 +498,7 @@ SET
     question = :question,
     answer = :answer,
     times_practiced = :times_practiced,
+    category = :category,
     passing_score = :passing_score,
     deadline = :deadline,
     first_practice_time = :first_practice_time,
@@ -519,6 +520,7 @@ WHERE id = :id
     query.bindValue(":first_practice_time", ku.FirstPracticeTime);
     query.bindValue(":deadline", ku.Deadline);
     query.bindValue(":id", ku.ID);
+    query.bindValue(":category", ku.Category);
     query.bindValue(":answer_image", ku.AnswerImageBytes);
     query.bindValue(":question_image", ku.QuestionImageBytes);
     return execPreparedQuery(query);

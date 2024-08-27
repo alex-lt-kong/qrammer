@@ -143,6 +143,7 @@ void Cramming::tmrInterval()
     timerDelay->stop();
     secDelayed = 0;
 
+    fillinThenExecuteCommand("CrammingReminderPopup");
     auto myCr = CrammingReminder(); // This is needed since a timeout before selection is required.
     myCr.setWindowModality(Qt::ApplicationModal);
     myCr.exec();
