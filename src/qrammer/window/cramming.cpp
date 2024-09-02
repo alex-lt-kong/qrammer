@@ -43,8 +43,9 @@ Cramming::~Cramming()
 void Cramming::closeEvent(QCloseEvent *event)
 {
     if (remainingKUsToCram == 0) {
-        actionExit_triggered_cb();
+        finalizeCrammingSession();
         event->accept();
+        QApplication::quit();
         return;
     }
     auto resBtn = QMessageBox::question(this,
@@ -54,10 +55,12 @@ void Cramming::closeEvent(QCloseEvent *event)
                                         QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes) {
         event->ignore();
-    } else {
-        actionExit_triggered_cb();
-        event->accept();
+        return;
     }
+
+    finalizeCrammingSession();
+    event->accept();
+    QApplication::quit();
 }
 
 void Cramming::initUI()
@@ -867,11 +870,7 @@ QString Cramming::convertStringToFilename(QString name)
 
 void Cramming::actionExit_triggered_cb()
 {
-    finalizeCrammingSession();
-    // This line alone won't work since finishLearning() would  quit the program before this line is executed
-    trayIcon->hide();
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-    QApplication::quit();
+    this->close();
 }
 
 void Cramming::resizeEvent(QResizeEvent *event)

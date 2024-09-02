@@ -1,4 +1,5 @@
 ﻿#include "manage_db.h"
+#include "qstatusbar.h"
 #include "src/qrammer/global_variables.h"
 #include "src/qrammer/utils.h"
 #include "src/qrammer/window/ui_manage_db.h"
@@ -13,6 +14,11 @@ ManageDB::ManageDB(QWidget *parent)
     , ui(new Ui::ManageDB)
 {
     ui->setupUi(this);
+    QStatusBar *bar = new QStatusBar(this);
+    ui->verticalLayout_8->addWidget(bar);
+    statusText = new QLabel(this);
+    statusText->setText("Ready");
+    bar->addWidget(statusText);
 
     ui->lineEdit_Keyword->setFocus();
     ui->comboBox_Field->addItems({ "Question", "Answer", "ID" });
@@ -60,15 +66,16 @@ void ManageDB::conductDatabaseSearch(QString field, QString keyword, QString cat
 {
     SPDLOG_INFO("Searching [{}] in category [{}]", keyword.toStdString(), category.toStdString());
     ui->listWidget_SearchResults->clear();
-
+    auto limit = 50;
     auto stmt = QString(R"***(
-SELECT id, question
+SELECT id, question, answer
 FROM knowledge_units
 WHERE
     category = :category AND
     %1 LIKE :keyword
-LIMIT 50)***")
-                    .arg(field);
+LIMIT %2)***")
+                    .arg(field)
+                    .arg(limit);
     QSqlQuery query;
     try {
         query = db.execSelectQuery(stmt,
@@ -84,15 +91,20 @@ LIMIT 50)***")
     searchResults = QMap<QString, int>();
 
     while (query.next()) {
-        searchResults.insert(query.value(1).toString(), query.value(0).toInt());
-        ui->listWidget_SearchResults->addItem(query.value(1).toString());
+        auto listItemIdx = field == "Answer" ? 2 : 1;
+        searchResults.insert(query.value(listItemIdx).toString(), query.value(0).toInt());
+        ui->listWidget_SearchResults->addItem(query.value(listItemIdx).toString());
     }
 
     if (ui->listWidget_SearchResults->count() > 0)
         ui->listWidget_SearchResults->setCurrentRow(0);
     else
         showSingleKU(-1);
-    SPDLOG_INFO("Found {} matches", ui->listWidget_SearchResults->count());
+    auto msg = fmt::format("Found {}{} matches",
+                           ui->listWidget_SearchResults->count(),
+                           ui->listWidget_SearchResults->count() == limit ? "+" : "");
+    // statusText->setText(QString::fromStdString(msg));
+    SPDLOG_INFO(msg);
 }
 
 void ManageDB::showSingleKU(int kuID)
@@ -102,6 +114,7 @@ void ManageDB::showSingleKU(int kuID)
     } catch (const std::runtime_error &e) {
         auto errMsg
             = QString("Error loading knowledge unit (ID: %1), reason: %2").arg(kuID).arg(e.what());
+        statusText->setText(errMsg);
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
@@ -283,8 +296,14 @@ void ManageDB::on_pushButton_WriteDB_clicked()
         cku.LastPracticeTime = QDateTime();
         cku.ClientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
         db.insertKu(cku);
+        auto msg = fmt::format("New KU inserted");
+        statusText->setText(QString::fromStdString(msg));
+        SPDLOG_INFO(msg);
     } else {
         db.updateKu(cku);
+        auto msg = fmt::format("KU {} updated", cku.ID);
+        statusText->setText(QString::fromStdString(msg));
+        SPDLOG_INFO(msg);
     }
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()
@@ -330,6 +349,7 @@ void ManageDB::on_pushButton_Delete_clicked()
         auto errMsg = QString("Error deleteing knowledge unit (ID: %1), reason: %2")
                           .arg(cku.ID)
                           .arg(e.what());
+        statusText->setText(errMsg);
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
