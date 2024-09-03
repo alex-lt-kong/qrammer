@@ -237,7 +237,7 @@ void Overview::on_pushButton_Start_clicked()
     QList<QString> number = ui->lineEdit_KusToCramByCategory->text().split(rx);
 
     size_t t = 0;
-    for (size_t i = 0; i < number.count() && i < availableCategory.size(); i++) {
+    for (size_t i = 0; i < number.count() && i < availableCategory.size(); ++i) {
         availableCategory[i].KuToCramCount = number.at(i).toInt();
         t += availableCategory[i].KuToCramCount;
     }

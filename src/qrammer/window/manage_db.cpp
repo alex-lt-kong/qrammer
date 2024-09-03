@@ -1,5 +1,4 @@
 ﻿#include "manage_db.h"
-#include "qstatusbar.h"
 #include "src/qrammer/global_variables.h"
 #include "src/qrammer/utils.h"
 #include "src/qrammer/window/ui_manage_db.h"
@@ -14,11 +13,6 @@ ManageDB::ManageDB(QWidget *parent)
     , ui(new Ui::ManageDB)
 {
     ui->setupUi(this);
-    QStatusBar *bar = new QStatusBar(this);
-    ui->verticalLayout_8->addWidget(bar);
-    statusText = new QLabel(this);
-    statusText->setText("Ready");
-    bar->addWidget(statusText);
 
     ui->lineEdit_Keyword->setFocus();
     ui->comboBox_Field->addItems({ "Question", "Answer", "ID" });
@@ -114,7 +108,6 @@ void ManageDB::showSingleKU(int kuID)
     } catch (const std::runtime_error &e) {
         auto errMsg
             = QString("Error loading knowledge unit (ID: %1), reason: %2").arg(kuID).arg(e.what());
-        statusText->setText(errMsg);
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;
@@ -196,29 +189,41 @@ void ManageDB::showSingleKU(int kuID)
 
 bool ManageDB::inputValidityCheck()
 {
+    if (ui->plainTextEdit_Question->toPlainText().length() == 0
+        && ui->label_QuestionImage->pixmap().isNull()) {
+        QMessageBox::warning(this, "Qrammer", "Question fields are empty");
+        return false;
+    }
+    if (ui->plainTextEdit_Answer->toPlainText().length() == 0
+        && ui->label_AnswerImage->pixmap().isNull()) {
+        QMessageBox::warning(this, "Qrammer", "Answer fields are empty");
+        return false;
+    }
     if (ui->comboBox_Category->currentText().size() <= 0) {
-        QMessageBox::information(this, "Information missing", "Field [Category] must be filled");
+        QMessageBox::warning(this, "Qrammer", "Field [Category] must be filled");
         return false;
     }
     if (ui->lineEdit_PassingScore->text().size() <= 0) {
-        QMessageBox::information(this, "Information missing", "Field [PassingScore] must be filled");
+        QMessageBox::warning(this, "Qrammer", "Field [PassingScore] must be filled");
         return false;
     }
 
     bool ok;
     ui->lineEdit_PassingScore->text().toInt(&ok);
     if (!ok) {
-        QMessageBox::information(this, "Convert from QString to int failed", "Field [PassingScore] should be a number");
+        QMessageBox::warning(this,
+                             "Convert from QString to int failed",
+                             "Field [PassingScore] should be a number");
         return false;
     }
 
     if (ui->lineEdit_Deadline->text().size() > 0
         && !(QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd HH:mm:ss").isValid()
              || QDateTime::fromString(ui->lineEdit_Deadline->text(), "yyyy-MM-dd").isValid())) {
-        QMessageBox::information(this,
-                                 "Convert from QString to QDatetime failed",
-                                 "Field [Deadline] must be null or a datetime string in the format "
-                                 "of yyyy-MM-dd( HH:mm:ss)");
+        QMessageBox::warning(this,
+                             "Convert from QString to QDatetime failed",
+                             "Field [Deadline] must be null or a datetime string in the format "
+                             "of yyyy-MM-dd( HH:mm:ss)");
         return false;
     }
     return true;
@@ -297,13 +302,13 @@ void ManageDB::on_pushButton_WriteDB_clicked()
         cku.ClientName = settings.value("ClientName", "Qrammer-Unspecified").toString();
         db.insertKu(cku);
         auto msg = fmt::format("New KU inserted");
-        statusText->setText(QString::fromStdString(msg));
         SPDLOG_INFO(msg);
+        QMessageBox::warning(this, "Qrammer", QString::fromStdString(msg));
     } else {
         db.updateKu(cku);
         auto msg = fmt::format("KU {} updated", cku.ID);
-        statusText->setText(QString::fromStdString(msg));
         SPDLOG_INFO(msg);
+        QMessageBox::warning(this, "Qrammer", QString::fromStdString(msg));
     }
     conductDatabaseSearch(ui->comboBox_Field->currentText(),
                           ui->lineEdit_Keyword_Prefix->text() + ui->lineEdit_Keyword->text()
@@ -349,7 +354,6 @@ void ManageDB::on_pushButton_Delete_clicked()
         auto errMsg = QString("Error deleteing knowledge unit (ID: %1), reason: %2")
                           .arg(cku.ID)
                           .arg(e.what());
-        statusText->setText(errMsg);
         SPDLOG_INFO(errMsg.toStdString());
         QMessageBox::warning(this, "Qrammer", errMsg);
         return;

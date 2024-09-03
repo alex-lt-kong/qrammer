@@ -48,7 +48,6 @@ private:
     bool inputValidityCheck();
 
     Ui::ManageDB *ui;
-    QLabel *statusText;
 
     QMap<QString, int> searchResults;
 
