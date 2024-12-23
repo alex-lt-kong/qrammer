@@ -190,7 +190,8 @@ void Cramming::updateCkuByGuiElements()
     cku.Question = ui->textEdit_Question->toPlainText();
     cku.Answer = ui->textEdit_Answer->toPlainText();
     cku.PassingScore = ui->lineEdit_PassingScore->text().toDouble();
-    cku.PreviousScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
+    auto NewPrevScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
+    // cku.PreviousScore = calculateNewPreviousScore(ui->comboBox_Score->currentText().toDouble());
     cku.timeUsedSec += ((QDateTime::currentSecsSinceEpoch() - kuStartLearningTime > 300)
                             ? 300
                             : (QDateTime::currentSecsSinceEpoch() - kuStartLearningTime));
@@ -200,13 +201,20 @@ void Cramming::updateCkuByGuiElements()
         cku.FirstPracticeTime = QDateTime::currentDateTime();
     }
 
-    if (cku.PreviousScore - cku.PassingScore < 0) {
-        double addedDays = 30 - (cku.PassingScore - cku.PreviousScore);
+    if (NewPrevScore < cku.PreviousScore) {
+        // New score even lower, add the unit back immediately
+        cku.Deadline = QDateTime::currentDateTime();
+    }
+    else if (NewPrevScore - cku.PassingScore < 0) {
+        // New score higher than old score, but lower than passing score, schedule a repeat
+        double addedDays = 30 - (cku.PassingScore - NewPrevScore);
         cku.Deadline = QDateTime::currentDateTime().addDays(addedDays);
     } else {
+        // New score higher than passing score, we are good
         cku.Deadline = QDateTime();
         assert(cku.Deadline.isNull());
     }
+    cku.PreviousScore = NewPrevScore;
 
     if (!ui->label_AnswerImage->pixmap().isNull()) {
         QBuffer buffer(&cku.AnswerImageBytes);
