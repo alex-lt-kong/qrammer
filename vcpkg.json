@@ -1,0 +1,7 @@
+{
+  "$schema" : "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies" : [ "nlohmann-json", "cpr", "cxxopts", "spdlog"],
+  "builtin-baseline" : "65be7019941e1401e02daaba0738cab2c8a4a355",
+  "version" : "0.0.2",
+  "name" : "qammer"
+}
